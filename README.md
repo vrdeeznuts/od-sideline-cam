@@ -21,7 +21,19 @@ NOTE: *The spectator feature is still under active development and is subject to
 # Usage & Customization
 **DON'T FORGET TO SAVE YOUR SETTINGS AFTER YOU SET THINGS UP** (there's a `Save Current Settings` button).
 ## Using the camera
+`Numpad 0` key: default keybind to select the camera when you open spec (you can change it if you like).<br>
+
 Since this is an auto-cam, you don't need to do anything while actively running it. With that being said, you still currently have to select the arena you want to spectate if the default or saved arena is not the right one. *In a future version, I'll add an auto-select arena based on a whitelist.*
+
+### Base Workflow After Setup
+1. Open Spectator
+1. Select server
+1. Press `Numpad 0` key or other pre-defined key for this camera if not set as default
+1. Navigate to desired arena (see [Arena Navigation](#arena-navigation) below)
+1. Confirm settings are good
+1. (Optional) Confirm clipping whitelist is good if using auto-clipping
+1. (Optional) Start Powershell auto-clipping script (see [Auto-Clipping Setup](#option-2-setup-with-auto-clipping) for ways to run the script)
+1. Win scrim!
 
 ### Arena Navigation
 - `up` and `down` arrow keys: cycle between the arenas on the side you're on (e.g., if you're at West-1 and you click `down`, it'll move to West-3)
