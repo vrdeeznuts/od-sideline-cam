@@ -23,6 +23,7 @@ NOTE: *The spectator feature is still under active development and is subject to
 
 # Usage & Customization
 **DON'T FORGET TO SAVE YOUR SETTINGS AFTER YOU SET THINGS UP** (there's a `Save Current Settings` button).
+
 ## Using the camera
 `Numpad 0` key: default keybind to select the camera when you open spec (you can change it if you like).<br>
 
