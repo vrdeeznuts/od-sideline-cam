@@ -25,7 +25,7 @@ if (-not (Test-Path $configPath)) {
     $configDelay = if ([string]::IsNullOrWhiteSpace($delayInput)) { $defaultConfig.delay } else { [int]$delayInput }
 
     # prompt for Medal clipping hotkey
-    $hotkeyInput = Read-Host -Prompt "Enter Medal hotkey (e.g., {F8}, G, ^G) (Default: $($defaultConfig.hotkey))"
+    $hotkeyInput = Read-Host -Prompt "Enter Medal hotkey (e.g., if your hotkey is F6, type {F6} - this will change in the future to be easier to input) (Default: $($defaultConfig.hotkey))"
     $configHotkey = if ([string]::IsNullOrWhiteSpace($hotkeyInput)) { $defaultConfig.hotkey } else { $hotkeyInput }
 
     # create config object
