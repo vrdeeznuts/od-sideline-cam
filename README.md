@@ -1,8 +1,16 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera for 4v4 (better than the one provided by AA fr). This camera script contains 3 primary features related that make it ideal for competitive players:
+Orion Drift Sideline Camera for 4v4 (better than the one provided by AA fr). This camera script contains many features that make it ideal for competitive players:
 1. It's automated.
 1. It provides a better perspective of the action compared to POV, 3rd person, or free cam. *It's also more feature-rich than the AA sideline cam.*
-1. There is an auto-clipping functionality* for whenever goals are scored.
+1. Auto-zoom.
+1. Ball outline when the geo is blocking the view.
+1. Colored ball trail to indicate who touched it last.
+1. Game scoreboard in the GUI:
+    - Team rosters (with goals per player)
+    - Score
+    - Clock
+    - Last player who scored
+1. Auto-clipping functionality* for whenever goals are scored.
 
 At its foundation, this camera follows the ball. Since there are plenty of POV/3rd person cameras out there already, I wanted to provide a camera that focuses more on the broad play (somewhat like freecam), while also being more watchable than a human-controlled camera (e.g., VRML casting - no hate, it's just a bit difficult to watch). **This camera is great for team-oriented content and VOD review.** I'd say the coverage (aka view of the ball and general play) is 90-95% with the right settings (see [Usage Section](#usage--customization) for more details).
 
@@ -11,7 +19,55 @@ At its foundation, this camera follows the ball. Since there are plenty of POV/3
 NOTE: *The spectator feature is still under active development and is subject to change throughout closed early access.*
 
 # Usage & Customization
+**DON'T FORGET TO SAVE YOUR SETTINGS AFTER YOU SET THINGS UP** (there's a `Save Current Settings` button).
+## Using the camera
+Since this is an auto-cam, you don't need to do anything while actively running it. With that being said, you still currently have to select the arena you want to spectate if the default or saved arena is not the right one. *In a future version, I'll add an auto-select arena based on a whitelist.*
 
+### Arena Navigation
+- `up` and `down` arrow keys: cycle between the arenas on the side you're on (e.g., if you're at West-1 and you click `down`, it'll move to West-3)
+- `a`: jump between East and West Driftplexes
+- `s`: swap sideline (if you have `Auto-switch Sideline` enabled, this is kind of useless tbh)
+
+### Other Keyboard/Mouse Functions
+#### Keyboard
+- `n`: Toggle nametags (why? `n` for `names`)
+- `z`: Toggle auto zoom (why? `z` for `zoom`)
+- `e`: Toggle endzone rise (why? `e` for `endzone`)
+- `c`: Toggle endzone inward hook (why? `c` for `curve`)
+
+#### Mouse
+- `Mouse scrolling`: zoom in or out<br>
+    Details:
+    - [x] Auto Zoom: it will try to keep the ball roughly the same size based on how much you've zoomed in
+    - [ ] Auto Zoom (disabled): normal zoom in/out without auto-adjusting
+
+## Settings
+There are a ton of settings that you can use or configure to your preferences. There is also decent documentation and tooltips in the GUI to provide guidance on what each setting is. 
+
+Recommended Settings (I leave the unmentioned settings as default):
+- Arena
+    - [x] Auto-switch Sideline
+    - [x] Instant side switch
+- Camera
+    - Toggles
+        - [x] Ball Outline when Hidden
+        - [x] Auto Zoom
+        - [ ] Endzone Rise (off)
+        - [x] Endzone Inward Hook
+    - Sliders
+        - How much the camera moves inward: `2.5`
+        - How much the camera moves backward: `0`
+        - Sideline distance (x) from arena center: `2093`
+        - Dolly rail length (y) from half field: `3072`
+        - Ball tracking smoothing: `0.3 - 0.35`
+        - Dolly smoothing: `0.2 - 0.3`
+- Ball Trail
+    - Trail length: `0.2 - 0.3`
+    - Max Thickness: `25-26`
+    - Ball Trail Start Offset: `1 or 2`
+
+## Auto-Clipping
+Because the camera scripts are sandboxed (aka no way to interact with your computer outside of the game), I had to write that Powershell script to be able to send keystrokes. It works by listening to the auto-generated A2.log file (usually found at `%LOCALAPPDATA%\A2\Saved\Logs\A2.log`) for a specific string - `"GOAL_SCORED_MEDAL_TRIGGER"`. When the script sees that string in the log, it will send your specified clipping hotkey after an optional delay. Refer to the [auto-clipping instructions](#option-2-setup-with-auto-clipping) below to set it up.
 
 # What's Included
 - `yuki.SIDE.luau` - this is the camera script that you would put with other camera scripts. It has 99% of the functionality but doesn't include the auto-clipping (the spectator API is sandboxed, so it can't send keystrokes by itself).

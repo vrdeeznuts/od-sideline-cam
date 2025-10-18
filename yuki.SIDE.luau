@@ -1024,40 +1024,38 @@ function onGui()
 	end
 
 	Gui.newLine()
-	Gui.separator()
-	if Gui.collapsingHeader("Medal Clipping Whitelist") then
-		whitelistEnabled = Gui.checkbox("Enable Clipping Whitelist", whitelistEnabled)
-		Gui.setItemTooltip("If checked, clips will ONLY be triggered for players on the list. \nIf unchecked, all goals will be clipped.")
-		
-		if whitelistEnabled then
-			Gui.indent()
-			Gui.text("Only clip goals scored by these players:")
-			local nameToRemove = nil
-			if #whitelist == 0 then
-				Gui.text("Whitelist is empty. No clips will be saved.")
-			end
-
-			for i, name in ipairs(whitelist) do
-				Gui.text(name)
-				Gui.sameLine()
-				if Gui.smallButton(Icon.Trash .. "##" .. i) then
-					nameToRemove = i
-				end
-			end
-
-			if nameToRemove then
-				table.remove(whitelist, nameToRemove)
-			end
-
-			Gui.separator()
-			newWhitelistName = Gui.inputText("Player Name", newWhitelistName)
-			Gui.sameLine()
-			if Gui.button("Add") and newWhitelistName ~= "" then
-				table.insert(whitelist, newWhitelistName)
-				newWhitelistName = ""
-			end
-			Gui.unindent()
+	Gui.separatorText("Medal Clipping Whitelist")
+	whitelistEnabled = Gui.checkbox("Enable Clipping Whitelist", whitelistEnabled)
+	Gui.setItemTooltip("If checked, clips will ONLY be triggered for players on the list. \nIf unchecked, all goals will be clipped.")
+	
+	if whitelistEnabled then
+		Gui.indent()
+		Gui.text("Only clip goals scored by these players:")
+		local nameToRemove = nil
+		if #whitelist == 0 then
+			Gui.text("Whitelist is empty. No clips will be saved.")
 		end
+
+		for i, name in ipairs(whitelist) do
+			Gui.text(name)
+			Gui.sameLine()
+			if Gui.smallButton(Icon.Trash .. "##" .. i) then
+				nameToRemove = i
+			end
+		end
+
+		if nameToRemove then
+			table.remove(whitelist, nameToRemove)
+		end
+
+		Gui.separator()
+		newWhitelistName = Gui.inputText("Player Name", newWhitelistName)
+		Gui.sameLine()
+		if Gui.button("Add") and newWhitelistName ~= "" then
+			table.insert(whitelist, newWhitelistName)
+			newWhitelistName = ""
+		end
+		Gui.unindent()
 	end
 
 	-- arena selection
