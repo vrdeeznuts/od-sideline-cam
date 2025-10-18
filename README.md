@@ -1,5 +1,5 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera for 4v4 (better than the one provided by AA fr). This camera script contains many features that make it ideal for competitive players:
+Orion Drift Sideline Camera version 4 for 4v4. This camera script contains many features that make it ideal for competitive players:
 1. It's automated.
 1. It provides a better perspective of the action compared to POV, 3rd person, or free cam. *It's also more feature-rich than the AA sideline cam.*
 1. Auto-zoom.
@@ -17,6 +17,9 @@ At its foundation, this camera follows the ball. Since there are plenty of POV/3
 *The auto-clipping feature is an external Powershell script that reads the auto-generated A2.log file and watches for a specific string before triggering your clipping software's hotkey.
 
 NOTE: *The spectator feature is still under active development and is subject to change throughout closed early access.*
+
+# Demo
+[iVi vs S7](https://youtu.be/LM-a9P_5bfg?si=wgDXQLXjnteWxeyO) YouTube video (unlisted)
 
 # Usage & Customization
 **DON'T FORGET TO SAVE YOUR SETTINGS AFTER YOU SET THINGS UP** (there's a `Save Current Settings` button).
@@ -126,3 +129,17 @@ Now with the setup complete, you can run the script. The first time you run it, 
     - Delete: `{DEL}`
     - Home:   `{HOME}`
     - End:    `{End}`
+
+# Future Work
+Things I plan to add or want to add to this camera.
+- [ ] Add auto-select arena based on whitelist
+- [ ] Add more info to scoreboard GUI
+    - [ ] Assists
+    - [ ] Saves
+    - [ ] Other stats? (pass completion, tackles, etc.)
+- [ ] I'm open to requests and/or feedback
+
+# Attribution
+- scripts written by `Yuki.10` (iVi NA/TTT)
+- script idea by `Mozzy` (Riptide)
+- auto-clipping requested by `Dwagin` (Aesir)
