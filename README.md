@@ -141,5 +141,6 @@ Things I plan to add or want to add to this camera.
 
 # Attribution
 - scripts written by `Yuki.10` (iVi NA/TTT)
+- some components inspired by `Dennssen` and `Brick.Rage`
 - script idea by `Mozzy` (Riptide)
 - auto-clipping requested by `Dwagin` (Aesir)
