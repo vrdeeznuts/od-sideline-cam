@@ -1,5 +1,5 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera version 4 for 4v4. 
+Orion Drift Sideline Camera v1.5 for 4v4. 
 
 # Table of Contents
 - [Description](#description)
@@ -26,15 +26,15 @@ This camera script contains many features that make it ideal for competitive pla
 1. Ball outline when the geo is blocking the view.
 1. Colored ball trail to indicate who touched it last.
 1. Game scoreboard in the GUI:
-    - Team rosters (with goals per player)
+    - Team rosters (with goals and assists per player)
     - Score
     - Clock
     - Last player who scored
-1. Auto-clipping functionality* for whenever goals are scored.
+1. Auto-clipping functionality for whenever goals are scored. [^1]
 
 At its foundation, this camera follows the ball. Since there are plenty of POV/3rd person cameras out there already, I wanted to provide a camera that focuses more on the broad play (somewhat like freecam), while also being more watchable than a human-controlled camera (e.g., VRML casting - no hate, it's just a bit difficult to watch). **This camera is great for team-oriented content and VOD review.** I'd say the coverage (aka view of the ball and general play) is 90-95% with the right settings (see [Usage Section](#usage--customization) for more details).
 
-*The auto-clipping feature is an external Powershell script that reads the auto-generated A2.log file and watches for a specific string before triggering your clipping software's hotkey.
+[^1]: The auto-clipping feature is an external Powershell script that reads the auto-generated A2.log file and watches for a specific string before triggering your clipping software's hotkey.
 
 NOTE: *The spectator feature is still under active development and is subject to change throughout closed early access.*
 

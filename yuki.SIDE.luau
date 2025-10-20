@@ -2,7 +2,7 @@ metadata = {
 	name = "Sideline Cam (LIVE)",
 	description = "4v4 automated sideline dolly camera with arena selection, ball tracking, automated zoom (FOV), automated side switching, endzone riser, keyboard/mouse controls, and somewhat documented GUI. Implementation by Yuki, ideation by Mozzy.",
 	authors = { "Yuki.10", "Mozzy" },
-	version = "1.4",
+	version = "1.5",
 	defaultKeybind = "NumPadZero",
 }
 
