@@ -64,9 +64,12 @@ local lastGoalScorerName = "N/A"
 -- local lastGoalScorerTeamName = ""
 local lastGoalTeam = -1
 local lastTouchPlayer = nil
-local lastPlayerTeam0 = nil
-local lastPlayerTeam1 = nil
+-- local lastPlayerTeam0 = nil
+-- local lastPlayerTeam1 = nil
 local playerGoalCounts = {}
+local playerAssistCounts = {}
+local lastTouchesTeam0 = {}
+local lastTouchesTeam1 = {}
 
 -- hardcoded arena positions based on gamemode slot id transform positions
 -- will update this to use the values directly from SpectatorGamemodes
@@ -687,10 +690,21 @@ local function drawBallTrail(dt, ballPos, players)
 
 	if closestPlayer then
 		lastTouchPlayer = closestPlayer
+		local touchList
+
 		if closestPlayer.teamIndex == 0 then
-			lastPlayerTeam0 = closestPlayer
+			touchList = lastTouchesTeam0
 		elseif closestPlayer.teamIndex == 1 then
-			lastPlayerTeam1 = closestPlayer
+			touchList = lastTouchesTeam1
+		end
+
+		if touchList then
+			if #touchList == 0 or touchList[1].playerName ~= closestPlayer.playerName then
+				table.insert(touchList, 1, closestPlayer)
+				if #touchList > 2 then
+					table.remove(touchList, 3)
+				end
+			end
 		end
 	end
 
@@ -997,14 +1011,17 @@ function onGui()
 				if team0List[i] then
 					local playerName = team0List[i].playerName
 					local goals = playerGoalCounts[playerName] or 0
-					Gui.text(string.format("%s (%d)", playerName, goals))
+					local assists = playerAssistCounts[playerName] or 0
+					Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
 				end
 
 				Gui.tableNextColumn()
 				if team1List[i] then
 					local playerName = team1List[i].playerName
 					local goals = playerGoalCounts[playerName] or 0
-					Gui.text(string.format("%s (%d)", playerName, goals))
+					local assists = playerAssistCounts[playerName] or 0
+					Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
+
 				end
 			end
 			Gui.endTable()
@@ -1274,6 +1291,7 @@ function tick(dt)
 	if slotId then
 		local gameData = SpectatorGamemodes.getGamemodeData(slotId)
 		if gameData and gameData.teams and #gameData.teams >= 2 then
+			local status = gameData.isGameRunning
 			local newScore0 = gameData.teams[1].score
 			local newScore1 = gameData.teams[2].score
 			local goalScored = false
@@ -1282,37 +1300,70 @@ function tick(dt)
 			if newScore0 > prevScore0 then
 				lastGoalTeam = 0
 				goalScored = true
-				-- lastGoalScorerTeamName = "pixelpunks"
-				if lastPlayerTeam0 then
-					lastGoalScorerName = lastPlayerTeam0.playerName
+				local lastGoalAssisterName = "N/A"
+
+				-- scorer is 1st player in list
+				if lastTouchesTeam0[1] then
+					lastGoalScorerName = lastTouchesTeam0[1].playerName
 				else
 					lastGoalScorerName = "N/A"
 				end
+				
+				-- assister is 2nd player (if they exist)
+				if lastTouchesTeam0[2] then
+					lastGoalAssisterName = lastTouchesTeam0[2].playerName
+				end
+
+				-- assign goal to player
 				if lastGoalScorerName ~= "N/A" then
 					playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
 				end
+
+				-- assign assist to player
+				if lastGoalAssisterName ~= "N/A" then
+					playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
+				end
+
+				-- auto-clip check
 				if isClipAllowed(lastGoalScorerName) then
 					print("GOAL_SCORED_MEDAL_TRIGGER")
 				end
-				print(string.format("Goal for pixelpunks by: %s", lastGoalScorerName))
+				print(string.format("[%s] Goal for pixelpunks by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
 			
 				-- check for blue team goal
 			elseif newScore1 > prevScore1 then
 				lastGoalTeam = 1
 				goalScored = true
-				-- lastGoalScorerTeamName = "samurais"
-				if lastPlayerTeam1 then
-					lastGoalScorerName = lastPlayerTeam1.playerName
+				local lastGoalAssisterName = "N/A"
+
+				-- scorer is 1st player in the list
+				if lastTouchesTeam1 then
+					lastGoalScorerName = lastTouchesTeam1[1].playerName
 				else
 					lastGoalScorerName = "N/A"
 				end
+				
+				-- assister is 2nd player (if they exist)
+				if lastTouchesTeam1[2] then
+					lastGoalAssisterName = lastTouchesTeam1[2].playerName
+				end
+
+				-- assign goal to player
 				if lastGoalScorerName ~= "N/A" then
 					playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
 				end
+
+				-- assign assist to player
+				if lastGoalAssisterName ~= "N/A" then
+					playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
+				end
+
+				-- auto-clip check
 				if isClipAllowed(lastGoalScorerName) then
 					print("GOAL_SCORED_MEDAL_TRIGGER")
 				end
-				print(string.format("Goal for samurais by: %s", lastGoalScorerName))
+				print(string.format("[%s] Goal for samurais by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
+				-- print(string.format("[%s] Goal for samurais by: %s", gameTime, lastGoalScorerName))
 			end
 
 			prevScore0 = newScore0
@@ -1320,8 +1371,8 @@ function tick(dt)
 
 			if goalScored then
 				lastTouchPlayer = nil
-				lastPlayerTeam0 = nil
-				lastPlayerTeam1 = nil
+				lastTouchesTeam0 = {}
+				lastTouchesTeam1 = {}
 			end
 		end
 	end
