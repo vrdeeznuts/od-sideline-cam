@@ -22,13 +22,14 @@ local downKey = Input.Key.Down
 -------- camera settings ------------------------------------------
 -------------------------------------------------------------------
 local MINFOV = 1
-local MAXFOV = 140
+local MAXFOV = 170
 local ZOOMSPEED = 5
 local fieldOfView = config.fieldOfView or 60
 local fieldOfViewSmoothing = config.fieldOfViewSmoothing or 0.05
 local rotationSmoothing = config.rotationSmoothing or 0.3
 local positionSmoothing = config.positionSmoothing or 0.3
 camera.showNameTags = config.showNameTags or true
+
 local arcEnabled = config.arcEnabled or false
 local endzoneHookEnabled = config.endzoneHookEnabled or true
 local ballHeightOffset = config.ballHeightOffset or 200
@@ -38,17 +39,17 @@ local maxBallHeight = config.maxBallHeight or 1329
 local currentSide = config.currentSide or 1
 local currentRow = config.currentRow or 1
 local currentArena = config.currentArena or "West-1"
-local autoSwitchSides = config.autoSwitchSides
-local sideSwitchDistance = config.sideSwitchDistance or 1500
+local autoSwitchSides = config.autoSwitchSides or true
+local sideSwitchDistance = config.sideSwitchDistance or 2093
 local sideSwitchWidth = 1000
-local sidelineLength = config.sidelineLength or 2000
-local sideSwitchInstant = config.sideSwitchInstant
+local sidelineLength = config.sidelineLength or 3072
+local sideSwitchInstant = config.sideSwitchInstant or true
 local sewerSwitchCooldown = config.sewerSwitchCooldown or 3.0
-local currentSewerCamPos = nil
 local sewerCooldownTimer = 0.0
+local currentSewerCamPos = nil
 local arcScale = 1e-4 / 2 -- height increase per squared distance from midfield line
-local hookScaleX = config.hookScaleX or 5
-local hookScaleY = config.hookScaleY or 3
+local hookScaleX = config.hookScaleX or 0
+local hookScaleY = config.hookScaleY or 2.5
 
 local autozoom = config.autozoom or {
 	enabled = true,
@@ -121,18 +122,18 @@ for _, c in ipairs(CORNERS) do
 end
 
 -- drawing settings
-local drawBallOutline = config.drawBallOutline
+local drawBallOutline = config.drawBallOutline or true
 local visible = false
 
 -- post process settings
-local yukiCamSets = config.yukiCamSets
+local yukiCamSets = config.yukiCamSets or false
 
 -- ball trail
 local trail: { { p: Vec3, t: number } } = {}
 local simTime = 0.0
 local trailSeconds = config.trailSeconds or 0.2
 local BALL_RADIUS = 20
-local searchRadiusMult = config.searchRadiusMult or 1.5
+local searchRadiusMult = config.searchRadiusMult or 1.53
 local TRAIL_HEAD_OFFSET = config.TRAIL_HEAD_OFFSET or 3
 local glowMultiplier = config.glowMultiplier or 1.5
 local debugDrawSearch = false
@@ -213,22 +214,22 @@ function main()
 		fieldOfView = 60,
 		fieldOfViewSmoothing = 0.05,
 		rotationSmoothing = 0.3,
-		positionSmoothing = 0.4,
+		positionSmoothing = 0.3,
 		showNameTags = true,
 		arcEnabled = false,
 		endzoneHookEnabled = true,
-		hookScaleX = 3.5,
-		hookScaleY = 0.0,
+		hookScaleX = 0.0,
+		hookScaleY = 2.5,
 		ballHeightOffset = 200,
 		maxBallHeight = 1329, -- roughly arena ceiling
 		currentSide = 1,
 		currentRow = 1,
 		currentArena = "West-1",
 		autoSwitchSides = true,
-		sideSwitchDistance = 1500,
+		sideSwitchDistance = 2093,
 		sideSwitchInstant = true,
-		sewerSwitchCooldown = 2.0,
-		sidelineLength = 2000,
+		sewerSwitchCooldown = 3,
+		sidelineLength = 3072,
 		drawBallOutline = true,
 		yukiCamSets = false,
 		autozoom = {
