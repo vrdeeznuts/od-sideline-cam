@@ -1,5 +1,25 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera version 4 for 4v4. This camera script contains many features that make it ideal for competitive players:
+Orion Drift Sideline Camera version 4 for 4v4. 
+
+# Table of Contents
+- [Description](#description)
+- [Demo](#demo)
+- [Usage & Customization](#usage--customization)
+    - [Using the Camera](#using-the-camera)
+        - [Workflow after Setup](#base-workflow-after-setup)
+        - [Arena Navigation](#arena-navigation)
+        - [Other KBM Functions](#other-keyboardmouse-functions)
+    - [Recommended Settings](#Settings)
+- [What's Included](#whats-included)
+- [Setup](#setup)
+    - [No Auto-Clipping](#option-1-easy-setup-no-auto-clipping)
+    - [With Auto-Clipping](#option-2-setup-with-auto-clipping)
+    - [Auto-Clipping Notice](#auto-clipping-notice)
+- [Future Work](#future-work)
+- [Credits](#credits)
+
+# Description
+This camera script contains many features that make it ideal for competitive players:
 1. It's automated.
 1. It provides a better perspective of the action compared to POV, 3rd person, or free cam. *It's also more feature-rich than the AA sideline cam.*
 1. Auto-zoom.
@@ -82,9 +102,6 @@ Recommended Settings (I leave the unmentioned settings as default):
     - Max Thickness: `25-26`
     - Ball Trail Start Offset: `1 or 2`
 
-## Auto-Clipping
-Because the camera scripts are sandboxed (aka no way to interact with your computer outside of the game), I had to write that Powershell script to be able to send keystrokes. It works by listening to the auto-generated A2.log file (usually found at `%LOCALAPPDATA%\A2\Saved\Logs\A2.log`) for a specific string - `"GOAL_SCORED_MEDAL_TRIGGER"`. When the script sees that string in the log, it will send your specified clipping hotkey after an optional delay. Refer to the [auto-clipping instructions](#option-2-setup-with-auto-clipping) below to set it up.
-
 # What's Included
 - `yuki.SIDE.luau` - this is the camera script that you would put with other camera scripts. It has 99% of the functionality but doesn't include the auto-clipping (the spectator API is sandboxed, so it can't send keystrokes by itself).
 - `Goal Watcher.ps1` - this is a Powershell script that enables the auto-clipping feature. It listens for certain messages in the A2.log (which is auto-generated each time you run spec) to trigger your clipping hotkey.
@@ -131,6 +148,9 @@ Now with the setup complete, you can run the script. The first time you run it, 
     - Home:   `{HOME}`
     - End:    `{End}`
 
+### Auto-Clipping Notice
+Because the camera scripts are sandboxed (aka no way to interact with your computer outside of the game), I had to write that Powershell script to be able to send keystrokes. It works by listening to the auto-generated A2.log file (usually found at `%LOCALAPPDATA%\A2\Saved\Logs\A2.log`) for a specific string - `"GOAL_SCORED_MEDAL_TRIGGER"`. When the script sees that string in the log, it will send your specified clipping hotkey after an optional delay. Refer to the [auto-clipping instructions](#option-2-setup-with-auto-clipping) below to set it up.
+
 # Future Work
 Things I plan to add or want to add to this camera.
 - [ ] Add auto-select arena based on whitelist
@@ -140,7 +160,7 @@ Things I plan to add or want to add to this camera.
     - [ ] Other stats? (pass completion, tackles, etc.)
 - [ ] I'm open to requests and/or feedback
 
-# Attribution
+# Credits
 - scripts written by `Yuki.10` (iVi NA/TTT)
 - some components inspired by `Dennssen` and `Brick.Rage`
 - script idea by `Mozzy` (Riptide)
