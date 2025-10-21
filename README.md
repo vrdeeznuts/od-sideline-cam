@@ -155,7 +155,7 @@ Because the camera scripts are sandboxed (aka no way to interact with your compu
 Things I plan to add or want to add to this camera.
 - [ ] Add auto-select arena based on whitelist
 - [ ] Add more info to scoreboard GUI
-    - [ ] Assists
+    - [x] Assists
     - [ ] Saves
     - [ ] Other stats? (pass completion, tackles, etc.)
 - [ ] I'm open to requests and/or feedback
