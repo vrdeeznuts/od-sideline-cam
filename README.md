@@ -1,5 +1,5 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera v1.5 for 4v4. 
+Orion Drift Sideline Camera v1.6 for 4v4. 
 
 # Table of Contents
 - [Description](#description)
