@@ -10,7 +10,8 @@ local firstTransition = true
 
 -- keybinds
 local nameKey = Input.Key.N
-local sideKey = Input.Key.S
+local sideKey = Input.Key.L
+local saveKey = Input.Key.S
 local arenaSwapKey = Input.Key.A
 local autozoomKey = Input.Key.Z
 local endzoneKey = Input.Key.E
@@ -286,7 +287,7 @@ local function isClipAllowed(scorerName)
 end
 
 ------------------------------------------------------
--- game helpers
+-- format helpers
 ------------------------------------------------------
 local function formatTime(totalSeconds)
 	if totalSeconds < 0 then
@@ -636,6 +637,35 @@ local function getNearestPlayerToBall(ballPos: Vec3, players)
 	return closestPlayer
 end
 
+local function updateLastTouch(ballPos, players)
+	if not ballPos then
+		return
+	end
+
+	local arenaPlayers = getPlayersInArenaByCenter(players)
+	local closestPlayer = getNearestPlayerToBall(ballPos, arenaPlayers)
+
+	if closestPlayer then
+		lastTouchPlayer = closestPlayer
+		local touchList
+
+		if closestPlayer.teamIndex == 0 then
+			touchList = lastTouchesTeam0
+		elseif closestPlayer.teamIndex == 1 then
+			touchList = lastTouchesTeam1
+		end
+
+		if touchList then
+			if #touchList == 0 or touchList[1].playerName ~= closestPlayer.playerName then
+				table.insert(touchList, 1, closestPlayer)
+				if #touchList > 2 then
+					table.remove(touchList, 3)
+				end
+			end
+		end
+	end
+end
+
 --------------------------------------------------------------
 -- ball trail
 --------------------------------------------------------------
@@ -685,30 +715,7 @@ local function drawBallTrail(dt, ballPos, players)
 		end
 	end
 
-	local arenaPlayers = getPlayersInArenaByCenter(players)
-	local closestPlayer = getNearestPlayerToBall(ballPos, arenaPlayers)
 	local teamName = nil
-
-	if closestPlayer then
-		lastTouchPlayer = closestPlayer
-		local touchList
-
-		if closestPlayer.teamIndex == 0 then
-			touchList = lastTouchesTeam0
-		elseif closestPlayer.teamIndex == 1 then
-			touchList = lastTouchesTeam1
-		end
-
-		if touchList then
-			if #touchList == 0 or touchList[1].playerName ~= closestPlayer.playerName then
-				table.insert(touchList, 1, closestPlayer)
-				if #touchList > 2 then
-					table.remove(touchList, 3)
-				end
-			end
-		end
-	end
-
 	if lastTouchPlayer then
 		teamName = lastTouchPlayer.playerColor.teamName
 	end
@@ -782,11 +789,208 @@ local function autoZoomUpdate(ballPos: Vec3, dt)
 	return smoothedFOV + (target - smoothedFOV) * a
 end
 
+--------------------------------------------------
+-- main tick helpers
+--------------------------------------------------
+local function updateScoreTracking(dt, slotId)
+	if not slotId then
+		return
+	end
+
+	local gameData = SpectatorGamemodes.getGamemodeData(slotId)
+	if gameData and gameData.teams and #gameData.teams >= 2 then
+		-- local status = gameData.isGameRunning -- don't really need rn
+		local newScore0 = gameData.teams[1].score
+		local newScore1 = gameData.teams[2].score
+		local goalScored = false
+
+		-- check for pink team goal
+		if newScore0 > prevScore0 then
+			lastGoalTeam = 0
+			goalScored = true
+			local lastGoalAssisterName = "N/A"
+
+			-- scorer is 1st player in list
+			if lastTouchesTeam0[1] then
+				lastGoalScorerName = lastTouchesTeam0[1].playerName
+			else
+				lastGoalScorerName = "N/A"
+			end
+			
+			-- assister is 2nd player (if they exist)
+			if lastTouchesTeam0[2] then
+				lastGoalAssisterName = lastTouchesTeam0[2].playerName
+			end
+
+			-- assign goal to player
+			if lastGoalScorerName ~= "N/A" then
+				playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
+			end
+
+			-- assign assist to player
+			if lastGoalAssisterName ~= "N/A" then
+				playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
+			end
+
+			-- auto-clip check
+			if isClipAllowed(lastGoalScorerName) then
+				print("GOAL_SCORED_MEDAL_TRIGGER")
+			end
+			print(string.format("[%s] Goal for pixelpunks by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
+		
+			-- check for blue team goal
+		elseif newScore1 > prevScore1 then
+			lastGoalTeam = 1
+			goalScored = true
+			local lastGoalAssisterName = "N/A"
+
+			-- scorer is 1st player in the list
+			if lastTouchesTeam1[1] then
+				lastGoalScorerName = lastTouchesTeam1[1].playerName
+			else
+				lastGoalScorerName = "N/A"
+			end
+			
+			-- assister is 2nd player (if they exist)
+			if lastTouchesTeam1[2] then
+				lastGoalAssisterName = lastTouchesTeam1[2].playerName
+			end
+
+			-- assign goal to player
+			if lastGoalScorerName ~= "N/A" then
+				playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
+			end
+
+			-- assign assist to player
+			if lastGoalAssisterName ~= "N/A" then
+				playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
+			end
+
+			-- auto-clip check
+			if isClipAllowed(lastGoalScorerName) then
+				print("GOAL_SCORED_MEDAL_TRIGGER")
+			end
+			print(string.format("[%s] Goal for samurais by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
+			-- print(string.format("[%s] Goal for samurais by: %s", gameTime, lastGoalScorerName))
+		end
+
+		prevScore0 = newScore0
+		prevScore1 = newScore1
+
+		if goalScored then
+			lastTouchPlayer = nil
+			lastTouchesTeam0 = {}
+			lastTouchesTeam1 = {}
+		end
+	end
+end
+
+local function calculateSidelineCameraPosition(ballPos, origin, worldUp, worldRight, yAxis, dt)
+	local dollyPos
+
+	if isBallInSewer(ballPos, origin, worldUp, worldRight, yAxis) then
+		sewerCooldownTimer = math.max(0, sewerCooldownTimer - dt)
+		local idealSewerPos = getSewerCameraPos(ballPos, origin, worldUp, worldRight, yAxis)
+		if not currentSewerCamPos then
+			currentSewerCamPos = idealSewerPos
+		end
+
+		if sewerCooldownTimer <= 0 and idealSewerPos ~= currentSewerCamPos then
+			currentSewerCamPos = idealSewerPos
+			sewerCooldownTimer = sewerSwitchCooldown
+		end
+		dollyPos = currentSewerCamPos
+	else
+		-- project ball to origin frame
+		local rel = ballPos - origin
+		local ballWidth = rel:dot(worldRight)
+		local ballLen = rel:dot(yAxis)
+		local ballH = rel:dot(worldUp)
+		
+		-- auto-switch sides
+		autoSwitchSidesUpdate(ballWidth)
+		
+		-- endzone hook adjustment
+		local x_hook_offset, y_hook_offsest = endzoneHookAdjust(ballLen, sidelineLength)
+		local y_sign = (ballLen >= 0) and 1 or -1
+
+		-- set dolly coords in origin frame
+		local dollyWidth = (currentSide * sideSwitchDistance) - (x_hook_offset * currentSide)
+		local dollyLen = math.clamp(ballLen, -sidelineLength, sidelineLength) - (y_hook_offsest * y_sign)
+		-- local dollyLen = math.clamp(ballLen, arenaYMin - origin.y, arenaYMax - origin.y)
+		local dollyHgt = ballH + ballHeightOffset
+		
+		-- endzone height adjustment
+		local extraHeight = endzoneHeightAdjust(ballPos, origin)
+		dollyHgt += extraHeight
+
+		-- clamp
+		local dollyHgtClamped = math.clamp(dollyHgt, -85, maxBallHeight)
+		
+		-- reconstruct position in origin frame
+		dollyPos = origin + (worldRight * dollyWidth) + (yAxis * dollyLen) + (worldUp * dollyHgtClamped)
+
+		local gravityDown = -worldUp
+		local fixedRayStartHeight = 463.697
+		local absStartHeight = (origin + (worldUp * fixedRayStartHeight)):dot(worldUp)
+		local currentDollyHeight = dollyPos:dot(worldUp)
+		local heightAdj = absStartHeight - currentDollyHeight
+		local rayStart = dollyPos + (worldUp * heightAdj)
+		local rayEnd = dollyPos + (gravityDown * 5000)
+		local hit = camera:castRay(rayStart, rayEnd)
+		if hit and hit.successful then
+			local groundHitPosition = hit.position
+			local minSafePosition = groundHitPosition - (gravityDown * minHeightAboveGround)
+
+			local currentHeight = dollyPos:dot(worldUp)
+			local minSafeHeight = minSafePosition:dot(worldUp)
+
+			if currentHeight < minSafeHeight then
+				local heightDiff = minSafeHeight - currentHeight
+				dollyPos = dollyPos + (worldUp * heightDiff)
+			end
+		end
+	end
+	return dollyPos
+end
+
+local function updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, newFieldOfView)
+	local rawTarget = ballPos
+	if rotationSmoothing > 0.0 then
+		rawTarget += (ballVel * 0.45)
+	end
+	local aimDir = rawTarget - dollyPos
+
+	local target = aimDir:isNearlyZero() and (dollyPos + worldForward) or (dollyPos + aimDir:getSafeNormal())
+
+	-- update camera
+	if prevSide ~= currSide and sideSwitchInstant then
+		camera.positionSmoothing = 0.0
+		camera.rotationSmoothing = 0.0
+		rawTarget = ballPos
+		aimDir = rawTarget - dollyPos
+		target = aimDir:isNearlyZero() and (dollyPos + worldForward) or (dollyPos + aimDir:getSafeNormal())
+	else
+		camera.positionSmoothing = positionSmoothing
+		camera.rotationSmoothing = rotationSmoothing
+	end
+
+	camera.position = dollyPos
+	camera:lookAt(target, gravity.upDirection)
+	camera.fieldOfView = fieldOfView
+end
+
 -- kbm helper
 local function getInputs()
+	if Input.getKeyDown(saveKey) then
+		saveToConfig()
+		print("Saved current settings")
+	end
+
 	if Input.getKeyDown(nameKey) then
 		camera.showNameTags = not camera.showNameTags
 	end
+
 	if Input.getKeyDown(sideKey) then
 		currentSide *= -1
 	end
@@ -934,102 +1138,192 @@ end
 
 function onGui()
 	Gui.text("Current Server: " .. Network.getCurrentServer())
-	Gui.sameLine()
 	Gui.separatorText("Auto Sideline Dolly - Ball Tracker (by Yuki.10 & Mozzy)")
-	Gui.text(
-		"NOTE: Most of the default settings are pretty dang good tbh. I recommend leaving them how \nthey are. There are tooltips for the buttons, checkboxes, and some of the sliders (mouse \nhover over them)."
-	)
+	Gui.text(Icon.SatelliteDish .. Icon.SatelliteDish .. " READ THIS " .. Icon.SatelliteDish .. Icon.SatelliteDish)
+	Gui.indent()
+	Gui.text("To fix invisible arenas:")
+	Gui.indent()
+	Gui.text(Icon.MousePointer .. " Click 'Spectator' (top left)")
+	Gui.text(Icon.MousePointer .. " Hover over 'Settings'")
+	Gui.text(Icon.MousePointer .. " Toggle 'Enable LODs'")
+	Gui.unindent()
+	Gui.unindent()
+	Gui.text(Icon.SatelliteDish .. Icon.SatelliteDish .. " READ THIS " .. Icon.SatelliteDish .. Icon.SatelliteDish)
 	Gui.newLine()
-	Gui.text("IF ARENAS ARE INVISIBLE: \nSpectator (top left) -> Settings -> Enable LODs.")
-	Gui.newLine()
 
-	Gui.separatorText("Game Status")
-	local arena = (ARENAS and ARENAS[currentArena])
-	local slotId = arena2Slot[currentArena]
-	local gameData = (slotId and SpectatorGamemodes.getGamemodeData(slotId))
-
-	if not arena or not gameData or not gameData.teams or #gameData.teams < 2 then
-		Gui.text("Waiting for game data...")
-	else
-		-- get teams
-		local pixelPunks, samurais = getPlayersInArenaByCenter(getGameData().players, true)
-		local teamColors = arena:getTeamColorsArray()
-		local team0Color = teamColors[1]
-		local team1Color = teamColors[2]
-		local team0Name = (team0Color and team0Color.teamName) or "pixelpunks"
-		local team1Name = (team1Color and team1Color.teamName) or "samurais"
-
-		-- get scores
-		local score0 = gameData.teams[1].score
-		local score1 = gameData.teams[2].score
-
-		-- display scores
-		Gui.text(string.format("%s   %d", team0Name, score0))
+	-- Gui.separatorText("Keyboard/Mouse Controls")
+	if Gui.collapsingHeader("Keyboard/Mouse Controls") then
+		Gui.text("'A':")
 		Gui.sameLine()
-		Gui.text("|")
+		Gui.text("Switch between East and West arenas.")
+		Gui.newLine()
+		
+		Gui.text("'L':")
 		Gui.sameLine()
-		Gui.text(string.format("%d   %s", score1, team1Name))
+		Gui.text("Swap sideline.")
+		Gui.newLine()
+		
+		Gui.text("'" .. Icon.ArrowUp .. "'" .. ", " .. "'" .. Icon.ArrowDown .. "':")
+		Gui.sameLine()
+		Gui.text("Cycle between arenas 1, 2, and 3.")
+		Gui.newLine()
 
-		-- display rosters
-		Gui.separator()
-		local team0List, team1List
-		if string.find(string.lower(team0Name), "pixel") then
-			team0List = pixelPunks
-			team1List = samurais
+		Gui.text("'S':")
+		Gui.sameLine()
+		Gui.text("Save settings.")
+		Gui.newLine()
+
+		Gui.text("'N':")
+		Gui.sameLine()
+		Gui.text("Toggle nametags.")
+		Gui.newLine()
+		
+		Gui.text("'Z':")
+		Gui.sameLine()
+		Gui.text("Toggle auto zoom.")
+		Gui.newLine()
+		
+		Gui.text("'E':")
+		Gui.sameLine()
+		Gui.text("Toggle Endzone Riser.")
+		Gui.newLine()
+		
+		Gui.text("'C':")
+		Gui.sameLine()
+		Gui.text("Toggle Endzone Inward Curve.")
+		Gui.newLine()
+
+		Gui.text(Icon.Mouse .. " Scroll:")
+		Gui.sameLine()
+		Gui.text("Zoom in/out.")
+	end
+
+	if Gui.collapsingHeader("Scoreboard") then
+		local arena = (ARENAS and ARENAS[currentArena])
+		local slotId = arena2Slot[currentArena]
+		local gameData = (slotId and SpectatorGamemodes.getGamemodeData(slotId))
+
+		if not arena or not gameData or not gameData.teams or #gameData.teams < 2 then
+			Gui.text("Waiting for game data...")
 		else
-			team0List = samurais
-			team1List = pixelPunks
-		end
+			-- get teams
+			local pixelPunks, samurais = getPlayersInArenaByCenter(getGameData().players, true)
+			local teamColors = arena:getTeamColorsArray()
+			local team0Color = teamColors[1]
+			local team1Color = teamColors[2]
+			local team0Name = (team0Color and team0Color.teamName) or "pixelpunks"
+			local team1Name = (team1Color and team1Color.teamName) or "samurais"
 
-		-- display game clock
-		local status = gameData.isGameRunning and "Running" or "Not Running"
-		Gui.text(string.format("Clock: %s (%s)", formatTime(gameData.timeSeconds), status))
+			-- get scores
+			local score0 = gameData.teams[1].score
+			local score1 = gameData.teams[2].score
 
-		-- display last scorer
-		if lastGoalTeam == 0 then
-			Gui.text(string.format("Last Goal: %s (%s)", lastGoalScorerName, team0Name))
-		elseif lastGoalTeam == 1 then
-			Gui.text(string.format("Last Goal: %s (%s)", lastGoalScorerName, team1Name))
-		else
-			Gui.text("Last Goal: N/A")
-		end
+			-- display scores
+			Gui.text(string.format("%s   %d", team0Name, score0))
+			Gui.sameLine()
+			Gui.text("|")
+			Gui.sameLine()
+			Gui.text(string.format("%d   %s", score1, team1Name))
 
-		if Gui.button(Icon.Eraser .. " Reset Goal Counts") then
-			playerGoalCounts = {}
-		end
-		Gui.setItemTooltip("Reset player goal counts in the roster below.")
+			-- display rosters
+			Gui.separator()
+			local team0List, team1List
+			if string.find(string.lower(team0Name), "pixel") then
+				team0List = pixelPunks
+				team1List = samurais
+			else
+				team0List = samurais
+				team1List = pixelPunks
+			end
 
-		if Gui.beginTable("rosters", 2) then
-			Gui.tableSetupColumn(team0Name)
-			Gui.tableSetupColumn(team1Name)
-			Gui.tableHeadersRow()
+			-- display game clock
+			local status = gameData.isGameRunning and "Running" or "Not Running"
+			Gui.text(string.format("Clock: %s (%s)", formatTime(gameData.timeSeconds), status))
 
-			local maxPlayers = math.max(#team0List, #team1List)
-			for i = 1, maxPlayers do
-				Gui.tableNextRow()
+			-- display last scorer
+			if lastGoalTeam == 0 then
+				Gui.text(string.format("Last Goal: %s (%s)", lastGoalScorerName, team0Name))
+			elseif lastGoalTeam == 1 then
+				Gui.text(string.format("Last Goal: %s (%s)", lastGoalScorerName, team1Name))
+			else
+				Gui.text("Last Goal: N/A")
+			end
 
-				Gui.tableNextColumn()
-				if team0List[i] then
-					local playerName = team0List[i].playerName
-					local goals = playerGoalCounts[playerName] or 0
-					local assists = playerAssistCounts[playerName] or 0
-					Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
+			if Gui.button(Icon.Eraser .. " Reset Goal Counts") then
+				playerGoalCounts = {}
+			end
+			Gui.setItemTooltip("Reset player goal counts in the roster below.")
+
+			if Gui.beginTable("rosters", 2) then
+				Gui.tableSetupColumn(team0Name)
+				Gui.tableSetupColumn(team1Name)
+				Gui.tableHeadersRow()
+
+				local maxPlayers = math.max(#team0List, #team1List)
+				for i = 1, maxPlayers do
+					Gui.tableNextRow()
+
+					Gui.tableNextColumn()
+					if team0List[i] then
+						local playerName = team0List[i].playerName
+						local goals = playerGoalCounts[playerName] or 0
+						local assists = playerAssistCounts[playerName] or 0
+						Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
+					end
+
+					Gui.tableNextColumn()
+					if team1List[i] then
+						local playerName = team1List[i].playerName
+						local goals = playerGoalCounts[playerName] or 0
+						local assists = playerAssistCounts[playerName] or 0
+						Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
+
+					end
 				end
+				Gui.endTable()
+			end
+		end
+		Gui.newLine()
+		Gui.separator()
+	end
+	Gui.setItemTooltip("Show scoreboard (with stats).")
 
-				Gui.tableNextColumn()
-				if team1List[i] then
-					local playerName = team1List[i].playerName
-					local goals = playerGoalCounts[playerName] or 0
-					local assists = playerAssistCounts[playerName] or 0
-					Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
+	if Gui.collapsingHeader("Medal Clipping") then
+		-- Gui.separatorText("Medal Clipping Whitelist")
+		whitelistEnabled = Gui.checkbox("Clip Whitelist Players Only", whitelistEnabled)
+		Gui.setItemTooltip("If checked, clips will ONLY be triggered for players on the list. \nIf unchecked, all goals will be clipped.")
+		
+		if whitelistEnabled then
+			Gui.indent()
+			Gui.text("Only clip goals scored by these players:")
+			local nameToRemove = nil
+			if #whitelist == 0 then
+				Gui.text("Whitelist is empty. No clips will be saved.")
+			end
 
+			for i, name in ipairs(whitelist) do
+				Gui.text(name)
+				Gui.sameLine()
+				if Gui.smallButton(Icon.Trash .. "##" .. i) then
+					nameToRemove = i
 				end
 			end
-			Gui.endTable()
+
+			if nameToRemove then
+				table.remove(whitelist, nameToRemove)
+			end
+
+			Gui.separator()
+			newWhitelistName = Gui.inputText("Player Name", newWhitelistName)
+			Gui.sameLine()
+			if Gui.button("Add") and newWhitelistName ~= "" then
+				table.insert(whitelist, newWhitelistName)
+				newWhitelistName = ""
+			end
+			Gui.unindent()
 		end
 	end
-	Gui.newLine()
-	Gui.separator()
+	Gui.setItemTooltip("This works IF you've downloaded and set up the Powershell script.")
 
 	if Gui.button(Icon.Save .. " Save Current Settings") then
 		-- updateConfig()
@@ -1039,41 +1333,6 @@ function onGui()
 	Gui.sameLine()
 	if Gui.button(Icon.WindowClose .. " Leave Server") then
 		Network.disconnectFromServer()
-	end
-
-	Gui.newLine()
-	Gui.separatorText("Medal Clipping Whitelist")
-	whitelistEnabled = Gui.checkbox("Enable Clipping Whitelist", whitelistEnabled)
-	Gui.setItemTooltip("If checked, clips will ONLY be triggered for players on the list. \nIf unchecked, all goals will be clipped.")
-	
-	if whitelistEnabled then
-		Gui.indent()
-		Gui.text("Only clip goals scored by these players:")
-		local nameToRemove = nil
-		if #whitelist == 0 then
-			Gui.text("Whitelist is empty. No clips will be saved.")
-		end
-
-		for i, name in ipairs(whitelist) do
-			Gui.text(name)
-			Gui.sameLine()
-			if Gui.smallButton(Icon.Trash .. "##" .. i) then
-				nameToRemove = i
-			end
-		end
-
-		if nameToRemove then
-			table.remove(whitelist, nameToRemove)
-		end
-
-		Gui.separator()
-		newWhitelistName = Gui.inputText("Player Name", newWhitelistName)
-		Gui.sameLine()
-		if Gui.button("Add") and newWhitelistName ~= "" then
-			table.insert(whitelist, newWhitelistName)
-			newWhitelistName = ""
-		end
-		Gui.unindent()
 	end
 
 	-- arena selection
@@ -1136,31 +1395,13 @@ function onGui()
 		Gui.text(Icon.DoorClosed)
 	end
 
+	-- camera settings
 	Gui.separatorText("Camera Settings")
-	-- auto zoom
-	autozoom.enabled = Gui.checkbox("Auto Zoom", autozoom.enabled)
-	-- endzone arc
-	arcEnabled = Gui.checkbox("Endzone Rise", arcEnabled)
-	Gui.setItemTooltip(
-		"Raise the camera when the ball gets closer to a goal. \nThis lowers the chance that the ball will be \nhidden by the Bridge and Nest geos. Press 'e' to enable/disable."
-	)
-	Gui.sameLine()
-	endzoneHookEnabled = Gui.checkbox("Endzone Inward Hook", endzoneHookEnabled)
-	Gui.setItemTooltip(
-		"When the ball is close to the goal, the camera will move \ninwards from the sideline. This lowers the chance \nthat the ball will be hidden by geos. Press 'c' to enable/disable."
-	)
-	if endzoneHookEnabled then
-		hookScaleX = Gui.sliderFloat("How much the camera moves inward", hookScaleX, 0, 10)
-		hookScaleY = Gui.sliderFloat("How much the camera moves backward", hookScaleY, 0, 10)
-	end
-
 	yukiCamSets = Gui.checkbox("Yuki's camera settings", yukiCamSets)
 	Gui.setItemTooltip("low exposure, low bloom")
 	if yukiCamSets then
 		postProcessSettings.bloomIntensity = 0.01
 		postProcessSettings.autoExposureBias = -0.001
-		-- else
-		-- 	postProcessSettings:reset()
 	end
 	Gui.sameLine()
 	if Gui.smallButton(Icon.Sync .. " reset exposure") then
@@ -1168,10 +1409,32 @@ function onGui()
 		yukiCamSets = false
 	end
 
+	-- auto zoom
+	autozoom.enabled = Gui.checkbox("Auto Zoom", autozoom.enabled)
+	Gui.newLine()
+
+	-- endzone
+	Gui.text("Endzone")
+	arcEnabled = Gui.checkbox("Riser", arcEnabled)
+	Gui.setItemTooltip(
+		"Raise the camera when the ball gets closer to a goal. \nThis lowers the chance that the ball will be \nhidden by the Bridge and Nest geos. Press 'e' to enable/disable."
+	)
+	Gui.sameLine()
+	endzoneHookEnabled = Gui.checkbox("Inward Hook", endzoneHookEnabled)
+	Gui.setItemTooltip(
+		"When the ball is close to the goal, the camera will move \ninwards from the sideline. This lowers the chance \nthat the ball will be hidden by geos. Press 'c' to enable/disable."
+	)
+	if endzoneHookEnabled then
+		hookScaleX = Gui.sliderFloat("How much the camera moves inward", hookScaleX, 0, 10)
+		Gui.setItemTooltip("When the ball is in the bubble, the camera will move towards the middle.")
+		-- hookScaleY = Gui.sliderFloat("How much the camera moves backward", hookScaleY, 0, 10)
+	end
+
 	-- max camera height
-	maxBallHeight = Gui.sliderInt("Max camera height", maxBallHeight, 300, 1329)
+	-- maxBallHeight = Gui.sliderInt("Max camera height", maxBallHeight, 300, 1329)
 	-- sideline distance to arena center
 	sideSwitchDistance = Gui.sliderInt("Sideline distance (x) from arena center", sideSwitchDistance, 100, 3000)
+	Gui.setItemTooltip("Camera's position width")
 	sidelineLength = Gui.sliderInt("Dolly rail length (y) from half field", sidelineLength, 200, 5000)
 	Gui.setItemTooltip("Probably don't change this one unless you disable the endzone arc.")
 	ballHeightOffset = Gui.sliderInt("Ball height offset", ballHeightOffset or 200, 0, 500)
@@ -1189,71 +1452,19 @@ function onGui()
 	MAX_THICKNESS = Gui.sliderFloat("Max Thickness", MAX_THICKNESS, 6, 30)
 	MIN_THICKNESS = Gui.sliderFloat("Min Thickness", MIN_THICKNESS, 0.1, 5)
 	TRAIL_HEAD_OFFSET = Gui.sliderInt("Ball Trail Start Offset", TRAIL_HEAD_OFFSET, 0, 5)
-	if Gui.collapsingHeader("Ball Trail Touch Heuristic") then
-		BALL_RADIUS = Gui.sliderFloat("Ball Radius", BALL_RADIUS, 5, 50)
-		searchRadiusMult = Gui.sliderFloat("Search Radius x Ball Radius", searchRadiusMult, 1.0, 4.0)
-		glowMultiplier = Gui.sliderFloat("Glow Multiplier", glowMultiplier, 0.5, 5)
-		-- local effective = BALL_RADIUS * searchRadiusMult
-		-- Gui.text(string.format("Effective search radius: %.1f units", effective))
-	end
+	glowMultiplier = Gui.sliderFloat("Glow Multiplier", glowMultiplier, 0.5, 5)
 	
-	-- Gui.separatorText("Keyboard/Mouse Controls")
-	if Gui.collapsingHeader("Keyboard/Mouse Controls") then
-		Gui.text("Arena Selection")
-		Gui.indent()
-		Gui.text("Arenas on the left are the 'West' Arenas. 'East' Arenas on the right.")
-		Gui.text("Use the dropdown to change arenas.")
-		Gui.text(
-			"Click the 'Toggle East/West Arena' button to quickly jump to the arena on the \nother (West/East) side. The 'a' key does the same as clicking that button. "
-		)
-		Gui.text(
-			"You can click the "
-			.. Icon.ArrowUp
-			.. " or "
-			.. Icon.ArrowDown
-			.. " buttons or use the 'up'/'down' arrow keys to move between 1/2/3 arenas."
-		)
-		Gui.text("The 'Switch Sideline' button is pretty self-explanatory. You can also press 's'.")
-		Gui.text("You can show/hide nametags by clicking the checkbox or by pressing 'n'.")
-		Gui.unindent()
-		Gui.text("Auto Zoom")
-		Gui.indent()
-		Gui.text(
-			"Auto Zoom will try to keep the ball size the same no matter where the ball is by zooming \n(this does not actually affect ball size, just the FOV)."
-		)
-		Gui.text("You can enable/disable it with the checkbox or by pressing 'z'.")
-		Gui.text("Use the 'Ball Size' slider or 'mouse scroll' to adjust the ball size.")
-		Gui.text("Ignore the 'Ease Speed' slider since it is pretty much the same as the 'Dolly \nsmoothing' slider.")
-		Gui.unindent()
-		Gui.text("General Camera Settings")
-		Gui.indent()
-		Gui.text("These settings control/display how the camera will move.")
-		Gui.text(
-			"Endzone Rise is a cool thing I added to make the camera move up as the ball gets closer to \na goal. The whole point is to minimize the chance that the ball is obstructed by Bridge \nand Nest."
-		)
-		Gui.text("Use the checkbox or 'e' key to enable/disable it.")
-		Gui.text("The Sideline distance slider controls how far from the center of the arena the camera \nwill be.")
-		Gui.text(
-			"The Dolly rail length slider controls how far down the sideline the camera will go. As the \nvalue increases, the camera will be able to move closer and closer to the corner of the \narena."
-		)
-		Gui.text(
-			"The Ball height offset slider controls how much higher the camera will be compared to the \nball. The endzone rise is an additional height offset separate from this."
-		)
-		Gui.text(
-			"Yeah the rest of these are pretty self-explanatory, so I don't really feel like writing \nany more documentation."
-		)
-		Gui.unindent()
-	end
-
 	Gui.separatorText("Debug")
 	debugDrawSearch = Gui.checkbox("Debug draw search radius", debugDrawSearch)
+	BALL_RADIUS = Gui.sliderFloat("Ball Radius", BALL_RADIUS, 5, 50)
+	searchRadiusMult = Gui.sliderFloat("Search Radius x Ball Radius", searchRadiusMult, 1.0, 4.0)
 	if Gui.button("Send Server Name to logs") then
 		print("MYCURRENTSERVER: " .. Network.getCurrentServer())
 	end
 end
 
 function tick(dt)
-	-- arena/player/ball info
+	-- 1. init and data fetch
 	if not ARENAS or not ARENAS[currentArena] then 
 		initializeArenas()
 		if not ARENAS or not ARENAS[currentArena] then
@@ -1262,218 +1473,43 @@ function tick(dt)
 	end 
 	local a = ARENAS[currentArena]
 	local aCoords = a.transform.position
-
 	local frame = getGameData()
 	local balls = frame.balls
 	local players = frame.players
-
-	-- camera values
-	-- local camRot = camera:getSmoothedRotation()
 	local camPos = camera:getSmoothedPosition()
 
-	-- kbm inputs
+	-- 2. kbm input handling
 	getInputs()
 
-	-- precompute aCoords frame
+	-- 3. world frame setup
 	local origin = Vec3.new(aCoords.x, aCoords.y, aCoords.z)
 	local worldUp, worldRight, worldForward, axisY = getWorldData(origin)
 
-	-- update ball and aCoords info
+	-- 4. ball pos/vel
 	local ballPos, ballVel = getBallPosVel(aCoords, balls, worldUp)
 	if not ballPos then
 		ballPos = origin
 		ballVel = Vec3.zeroVector
 	end
 
+	-- 5. ball touch and trail
+	updateLastTouch(ballPos, players)
 	drawBallTrail(dt, ballPos, players)
 
-	-- score tracking logic
+	-- 6. score tracking
 	local slotId = arena2Slot[currentArena]
-	if slotId then
-		local gameData = SpectatorGamemodes.getGamemodeData(slotId)
-		if gameData and gameData.teams and #gameData.teams >= 2 then
-			local status = gameData.isGameRunning
-			local newScore0 = gameData.teams[1].score
-			local newScore1 = gameData.teams[2].score
-			local goalScored = false
+	updateScoreTracking(dt, slotId)
 
-			-- check for pink team goal
-			if newScore0 > prevScore0 then
-				lastGoalTeam = 0
-				goalScored = true
-				local lastGoalAssisterName = "N/A"
-
-				-- scorer is 1st player in list
-				if lastTouchesTeam0[1] then
-					lastGoalScorerName = lastTouchesTeam0[1].playerName
-				else
-					lastGoalScorerName = "N/A"
-				end
-				
-				-- assister is 2nd player (if they exist)
-				if lastTouchesTeam0[2] then
-					lastGoalAssisterName = lastTouchesTeam0[2].playerName
-				end
-
-				-- assign goal to player
-				if lastGoalScorerName ~= "N/A" then
-					playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
-				end
-
-				-- assign assist to player
-				if lastGoalAssisterName ~= "N/A" then
-					playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
-				end
-
-				-- auto-clip check
-				if isClipAllowed(lastGoalScorerName) then
-					print("GOAL_SCORED_MEDAL_TRIGGER")
-				end
-				print(string.format("[%s] Goal for pixelpunks by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
-			
-				-- check for blue team goal
-			elseif newScore1 > prevScore1 then
-				lastGoalTeam = 1
-				goalScored = true
-				local lastGoalAssisterName = "N/A"
-
-				-- scorer is 1st player in the list
-				if lastTouchesTeam1[1] then
-					lastGoalScorerName = lastTouchesTeam1[1].playerName
-				else
-					lastGoalScorerName = "N/A"
-				end
-				
-				-- assister is 2nd player (if they exist)
-				if lastTouchesTeam1[2] then
-					lastGoalAssisterName = lastTouchesTeam1[2].playerName
-				end
-
-				-- assign goal to player
-				if lastGoalScorerName ~= "N/A" then
-					playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
-				end
-
-				-- assign assist to player
-				if lastGoalAssisterName ~= "N/A" then
-					playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
-				end
-
-				-- auto-clip check
-				if isClipAllowed(lastGoalScorerName) then
-					print("GOAL_SCORED_MEDAL_TRIGGER")
-				end
-				print(string.format("[%s] Goal for samurais by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
-				-- print(string.format("[%s] Goal for samurais by: %s", gameTime, lastGoalScorerName))
-			end
-
-			prevScore0 = newScore0
-			prevScore1 = newScore1
-
-			if goalScored then
-				lastTouchPlayer = nil
-				lastTouchesTeam0 = {}
-				lastTouchesTeam1 = {}
-			end
-		end
-	end
-
-	local dollyPos
+	-- 7. camera pos calculation
 	local prevSide = currentSide
-	local currSide
+	local dollyPos = calculateSidelineCameraPosition(ballPos, origin, worldUp, worldRight, axisY, dt)
+	local currSide = currentSide
 
-	if isBallInSewer(ballPos, aCoords, worldUp, worldRight, axisY) then
-		sewerCooldownTimer = math.max(0, sewerCooldownTimer - dt)
-		local idealSewerPos = getSewerCameraPos(ballPos, aCoords, worldUp, worldRight, axisY)
-		if not currentSewerCamPos then
-			currentSewerCamPos = idealSewerPos
-		end
-
-		if sewerCooldownTimer <= 0 and idealSewerPos ~= currentSewerCamPos then
-			currentSewerCamPos = idealSewerPos
-			sewerCooldownTimer = sewerSwitchCooldown
-		end
-		dollyPos = currentSewerCamPos
-	else
-		-- project ball to aCoords frame
-		local rel = ballPos - origin
-		local ballWidth = rel:dot(worldRight)
-		local ballLen = rel:dot(axisY)
-		local ballH = rel:dot(worldUp)
-		
-		-- auto-switch sides
-		autoSwitchSidesUpdate(ballWidth)
-		currSide = currentSide
-		
-		-- endzone hook adjustment
-		local x_hook_offset, y_hook_offsest = endzoneHookAdjust(ballLen, sidelineLength)
-		local y_sign = (ballLen >= 0) and 1 or -1
-
-		-- set dolly coords in aCoords frame
-		local dollyWidth = (currentSide * sideSwitchDistance) - (x_hook_offset * currSide)
-		local dollyLen = math.clamp(ballLen, -sidelineLength, sidelineLength) - (y_hook_offsest * y_sign)
-		-- local dollyLen = math.clamp(ballLen, arenaYMin - aCoords.y, arenaYMax - aCoords.y)
-		local dollyHgt = ballH + ballHeightOffset
-		
-		-- endzone height adjustment
-		local extraHeight = endzoneHeightAdjust(ballPos, origin)
-		dollyHgt += extraHeight
-
-		-- clamp
-		local dollyHgtClamped = math.clamp(dollyHgt, -85, maxBallHeight)
-		
-		-- reconstruct position in aCoords frame
-		dollyPos = origin + (worldRight * dollyWidth) + (axisY * dollyLen) + (worldUp * dollyHgtClamped)
-
-		local gravityDown = -worldUp
-		local fixedRayStartHeight = 463.697
-		local absStartHeight = (origin + (worldUp * fixedRayStartHeight)):dot(worldUp)
-		local currentDollyHeight = dollyPos:dot(worldUp)
-		local heightAdj = absStartHeight - currentDollyHeight
-		local rayStart = dollyPos + (worldUp * heightAdj)
-		local rayEnd = dollyPos + (gravityDown * 5000)
-		local hit = camera:castRay(rayStart, rayEnd)
-		if hit and hit.successful then
-			local groundHitPosition = hit.position
-			local minSafePosition = groundHitPosition - (gravityDown * minHeightAboveGround)
-
-			local currentHeight = dollyPos:dot(worldUp)
-			local minSafeHeight = minSafePosition:dot(worldUp)
-
-			if currentHeight < minSafeHeight then
-				local heightDiff = minSafeHeight - currentHeight
-				dollyPos = dollyPos + (worldUp * heightDiff)
-			end
-		end
-	end
-
-	-- set camera
+	-- 8. update camera state
 	fieldOfView = autoZoomUpdate(ballPos, dt)
-	local rawTarget = ballPos
-	if rotationSmoothing > 0.0 then
-		rawTarget += (ballVel * 0.45)
-	end
-	local aimDir = rawTarget - dollyPos
+	updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, fieldOfView)
 
-	local target = aimDir:isNearlyZero() and (dollyPos + worldForward) or (dollyPos + aimDir:getSafeNormal())
-
-	-- update camera
-	if prevSide ~= currSide and sideSwitchInstant then
-		camera.positionSmoothing = 0.0
-		camera.rotationSmoothing = 0.0
-		rawTarget = ballPos
-		aimDir = rawTarget - dollyPos
-		target = aimDir:isNearlyZero() and (dollyPos + worldForward) or (dollyPos + aimDir:getSafeNormal())
-	else
-		camera.positionSmoothing = positionSmoothing
-		camera.rotationSmoothing = rotationSmoothing
-	end
-
-	camera.position = dollyPos
-	camera:lookAt(target, gravity.upDirection)
-	camera.fieldOfView = fieldOfView
-
-	-- debug
+	-- 9. drawing
 	if drawBallOutline then
 		local camUp, camRight, camForward = getCamVectors()
 		worldDrawDebug(aCoords, ballPos, camPos, camUp, camRight, camForward, dt)
@@ -1482,8 +1518,4 @@ function tick(dt)
 	if debugDrawSearch then
 		debugDrawSearchSphere(ballPos, BALL_RADIUS * searchRadiusMult)
 	end
-
-	-- updateSettings()
-
-	-- local pixels, sams = getPlayersInArenaByCenter(Vec3.new(aCoords.x, aCoords.y, -30000), arena_radius)
 end
