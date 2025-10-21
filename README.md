@@ -42,7 +42,7 @@ NOTE: *The spectator feature is still under active development and is subject to
 [iVi vs S7](https://youtu.be/LM-a9P_5bfg?si=wgDXQLXjnteWxeyO) YouTube video (unlisted)
 
 # Usage & Customization
-**DON'T FORGET TO SAVE YOUR SETTINGS AFTER YOU SET THINGS UP** (there's a `Save Current Settings` button).
+**DON'T FORGET TO SAVE YOUR SETTINGS AFTER YOU SET THINGS UP** (press the `s` key or click the `Save Current Settings` button).
 
 ## Using the camera
 `Numpad 0` key: default keybind to select the camera when you open spec (you can change it if you like).<br>
@@ -62,14 +62,15 @@ Since this is an auto-cam, you don't need to do anything while actively running 
 ### Arena Navigation
 - `up` and `down` arrow keys: cycle between the arenas on the side you're on (e.g., if you're at West-1 and you click `down`, it'll move to West-3)
 - `a`: jump between East and West Driftplexes
-- `s`: swap sideline (if you have `Auto-switch Sideline` enabled, this is kind of useless tbh)
+- `l`: swap sideline (if you have `Auto-switch Sideline` enabled, this is kind of useless tbh)
 
 ### Other Keyboard/Mouse Functions
 #### Keyboard
-- `n`: Toggle nametags (why? `n` for `names`)
-- `z`: Toggle auto zoom (why? `z` for `zoom`)
-- `e`: Toggle endzone rise (why? `e` for `endzone`)
-- `c`: Toggle endzone inward hook (why? `c` for `curve`)
+- `s`: Save current settings
+- `n`: Toggle nametags
+- `z`: Toggle auto zoom
+- `e`: Toggle endzone rise
+- `c`: Toggle endzone inward hook
 
 #### Mouse
 - `Mouse scrolling`: zoom in or out<br>
