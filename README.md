@@ -159,8 +159,8 @@ Things I plan to add or want to add to this camera.
     - [x] Assists
     - [ ] Saves
     - [ ] Other stats? (pass completion, tackles, etc.)
-- [ ] update keybinds
-    - [ ] save (replace swap sideline button with different key)
+- [x] update keybinds
+    - [x] save (replace swap sideline button with different key)
 - [ ] I'm open to requests and/or feedback
 
 # Credits
