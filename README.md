@@ -4,6 +4,9 @@ Orion Drift Sideline Camera v1.6 for 4v4.
 # Table of Contents
 - [Description](#description)
 - [Demo](#demo)
+- [How To](#how-to)
+    - [Download Files from GitHub](#download-a-file-from-github)
+    - [Add Script to Spectator](#add-a-script-to-your-spectator)
 - [Usage & Customization](#usage--customization)
     - [Using the Camera](#using-the-camera)
         - [Workflow after Setup](#base-workflow-after-setup)
@@ -40,6 +43,29 @@ NOTE: *The spectator feature is still under active development and is subject to
 
 # Demo
 [iVi vs S7](https://youtu.be/LM-a9P_5bfg?si=wgDXQLXjnteWxeyO) YouTube video (unlisted)
+
+# How To
+## Download a file from GitHub
+1. Click on a file
+![yuki.SIDE.luau](assets/install-1.png)
+1. Click the download button
+![download button](assets/install-2.png)
+
+Done.
+
+## Add a script to your spectator
+1. After downloading the script, open a new File Explorer window (press `Win + E`)
+1. Copy the text below (this is where your spectator scripts are)
+    > %USERPROFILE%\Documents\Another-Axiom\A2\Cameras\Behaviors
+1. Click the address bar in the File Explorer (or click the window then press `Ctrl + L`)
+![address bar](assets/install-3.png)
+1. Paste the text you copied then press `Enter`
+1. Drag and drop the script from your `Downloads` folder into your `Behaviors` folder
+![drag and drop](assets/install-4.png)
+1. Now when you open up the spectator, you should see `yuki.side` as one of the camera options.
+![spec F2](assets/install-5.png)
+
+Done.
 
 # Usage & Customization
 **DON'T FORGET TO SAVE YOUR SETTINGS AFTER YOU SET THINGS UP** (press the `s` key or click the `Save Current Settings` button).
