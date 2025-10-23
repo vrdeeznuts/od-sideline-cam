@@ -59,19 +59,32 @@ local autozoom = config.autozoom or {
 	followSpeed = 30.0,
 }
 
--- game/score
+-- scoreboard and stats data
+local gameEvents = {}
+local currentRound = 0
+local wasGameRunning = false
 local prevScore0 = 0
 local prevScore1 = 0
 local lastGoalScorerName = "N/A"
--- local lastGoalScorerTeamName = ""
 local lastGoalTeam = -1
 local lastTouchPlayer = nil
--- local lastPlayerTeam0 = nil
--- local lastPlayerTeam1 = nil
-local playerGoalCounts = {}
-local playerAssistCounts = {}
 local lastTouchesTeam0 = {}
 local lastTouchesTeam1 = {}
+
+local playerGoalCounts = {}
+local playerAssistCounts = {}
+local playerPassAttempts = {}
+local playerPassCompletions = {}
+local playerTurnovers = {}
+local playerSteals = {}
+local playerInterceptions = {}
+
+local scuffleCooldown = 1.0 -- test turnover cooldown 
+local tackleDistance = 150 -- test tackle distance
+
+local lastTouchTimestamp = 0.0
+local lastToucherInPossession = nil -- track whoever has "clear" possession
+
 
 -- hardcoded arena positions based on gamemode slot id transform positions
 -- will update this to use the values directly from SpectatorGamemodes
@@ -145,6 +158,14 @@ local MIN_THICKNESS = 1.0
 local newWhitelistName = ""
 local whitelistEnabled = config.whitelistEnabled or false
 local whitelist = config.whitelist or {}
+
+-- cache game state/data to improve performance (reduce redundant fn calls)
+local currentFrame = nil
+local currentGameData = nil
+local currentSlotId = nil
+local currentArenaPlayers = {}
+local currentPixelPunks = {}
+local currentSamurais = {}
 
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -264,6 +285,156 @@ function onTransitionBegin(transitionInfo: Transition)
 	firstTransition = false
 end
 
+local function formatTime(totalSeconds)
+	if totalSeconds < 0 then
+		totalSeconds = 0
+	end
+	local minutes = math.floor(totalSeconds / 60)
+	local seconds = math.floor(totalSeconds % 60)
+	return string.format("%d:%02d", minutes, seconds)
+end
+
+local function resetStats()
+	gameEvents = {}
+	playerGoalCounts = {}
+	playerAssistCounts = {}
+	playerPassAttempts = {}
+	playerPassCompletions = {}
+	playerTurnovers = {}
+	playerSteals = {}
+	playerInterceptions = {}
+	lastTouchesTeam0 = {}
+	lastTouchesTeam1 = {}
+
+	-- reset state variables
+	lastGoalScorerName = "N/A"
+	lastGoalTeam = -1
+	lastTouchTimestamp = 0.0
+	lastToucherInPossession = nil
+	lastTouchPlayer = nil
+
+	currentRound = 0
+	wasGameRunning = false
+end
+
+local function logGameEvent(gameTime, eventType, player1, player2, teamIndex)
+	local event = {
+		timestamp = (gameTime and formatTime(gameTime)) or "0:00",
+		type_ = eventType,
+		player1 = player1 or "N/A",
+		player2 = player2 or "N/A",
+		team = teamIndex, -- pix=0, sam=1
+	}
+	table.insert(gameEvents, event)
+end
+
+local function getAllPlayersFromStats()
+	local allPlayers = {}
+	local playerSet = {}
+
+	local statTables = {
+		playerGoalCounts,
+		playerAssistCounts,
+		playerPassAttempts,
+		playerPassCompletions,
+		playerTurnovers,
+		playerSteals,
+		playerInterceptions,
+	}
+
+	for _, statTable in ipairs(statTables) do
+		for playerName, _ in pairs(statTable) do
+			playerSet[playerName] = true
+		end
+	end
+
+	for playerName, _ in pairs(playerSet) do
+		table.insert(allPlayers, playerName)
+	end
+	table.sort(allPlayers)
+	return allPlayers
+end
+
+local function exportGameLog()
+	local gameData = currentGameData
+	-- local slotId = currentSlotId
+	local team0Name = "PixelPunks"
+	local team1Name = "Samurais"
+	local score0 = prevScore0
+	local score1 = prevScore1
+
+	if gameData and gameData.teams and #gameData.teams >= 2 then
+		local arena = (ARENAS and ARENAS[currentArena])
+		if arena then
+			local teamColors = arena:getTeamColorsArray()
+			team0Name = (teamColors[1] and teamColors[1].teamName) or team0Name
+			team1Name = (teamColors[2] and teamColors[2].teamName) or team1Name
+		end
+		score0 = gameData.teams[1].score
+		score1 = gameData.teams[2].score
+	end
+
+	local gameTime = (gameData and formatTime(gameData.timeSeconds)) or "N/A"
+	local status = (gameData and gameData.isGameRunning and "Running") or "Not Running"
+
+	print("================================================================")
+	print("                     DRIFTBALL GAME LOG")
+	print("================================================================")
+	print(string.format("Server: %s", Network.getCurrentServer()))
+	print(string.format("Arena: %s", currentArena or "N/A"))
+	print(string.format("Game Clock: %s (%s)", gameTime, status))
+	print(string.format("Rounds Played: %d", currentRound))
+	print(string.format("FINAL SCORE: %s [%d] - [%d] %s", team0Name, score0, score1, team1Name))
+	print("----------------------------------------------------------------")
+	print("                     PLAYER STATS (TOTALS)")
+	print("----------------------------------------------------------------")
+	print(string.format("%-25s | G | A | P (C/A) | TO | STL | INT", "Player"))
+	
+	local allPlayers = getAllPlayersFromStats()
+	for _, playerName in ipairs(allPlayers) do
+		local g = playerGoalCounts[playerName] or 0
+		local a = playerAssistCounts[playerName] or 0
+		local pc = playerPassCompletions[playerName] or 0
+		local pa = playerPassAttempts[playerName] or 0
+		local to = playerTurnovers[playerName] or 0
+		local stl = playerSteals[playerName] or 0
+		local int = playerInterceptions[playerName] or 0
+
+		print(string.format(
+			"%-25s | %d | %d | %d/%d     | %d  | %d   | %d",
+			playerName, g, a, pc, pa, to, stl, int
+		))
+	end
+	
+	print("----------------------------------------------------------------")
+	print("                    INDIVIDUAL EVENT LOG")
+	print("----------------------------------------------------------------")
+	print(string.format("%-8s | %-13s | %-25s | %-25s | Team", "Time", "Event", "Player 1", "Player 2"))
+	
+	for _, event in ipairs(gameEvents) do
+		local teamName = "N/A"
+		if event.team == 0 then
+			teamName = team0Name
+		elseif event.team == 1 then
+			teamName = team1Name
+		end
+	
+		print(string.format(
+			"[%-6s] | %-13s | %-25s | %-25s | %s",
+			event.timestamp,
+			event.type_,
+			event.player1,
+			event.player2,
+			teamName
+		))
+	end
+	
+	print("================================================================")
+	print("                         END OF LOG")
+	print("================================================================")
+	print("Log export complete.")
+end
+
 ------------------------------------------------------
 -- game helpers
 ------------------------------------------------------
@@ -284,18 +455,6 @@ local function isClipAllowed(scorerName)
 	end
 
 	return false -- no match
-end
-
-------------------------------------------------------
--- format helpers
-------------------------------------------------------
-local function formatTime(totalSeconds)
-	if totalSeconds < 0 then
-		totalSeconds = 0
-	end
-	local minutes = math.floor(totalSeconds / 60)
-	local seconds = math.floor(totalSeconds % 60)
-	return string.format("%d:%02d", minutes, seconds)
 end
 
 ------------------------------------------------------
@@ -433,18 +592,34 @@ local function autoSwitchSidesUpdate(ballWidth)
 	end
 end
 
-local function getBallPosVel(arena, balls, up)
+local function getBallPosVel(arena, balls, up, right, yAxis)
 	if balls and #balls > 0 then
+		local halfWidth = 3000
+		local halfLength = 4200
+		local lowerHeight = -85
+		local upperHeight = 1330
+
 		local bestDist = math.huge
 		local closestBall = nil
 		for _, ball in ipairs(balls) do
-			-- if ball.type == 1 and isBelow(up, ball.transform.position, arenaPos) then
 			if ball.type == 1 then
-				local ballPos: Vec3 = ball.transform.position
-				local dist = (ballPos - arena):length()
-				if dist < bestDist and isBelow(gravity.upDirection, ball.transform.position, arena, ceiling) then
-					closestBall = ball
-					bestDist = dist
+				local ballPos = ball.transform.position
+				local relPos = ballPos - arena
+
+				local lclX = relPos:dot(right)
+				local lclY = relPos:dot(yAxis)
+				local lclZ = relPos:dot(up)
+				if 
+					math.abs(lclX) <= halfWidth
+					and math.abs(lclY) <= halfLength
+					and lclZ >= lowerHeight
+					and isBelow(up, ballPos, arena, upperHeight)
+				then
+					local dist = (ballPos - arena):length()
+					if dist < bestDist and isBelow(gravity.upDirection, ball.transform.position, arena, upperHeight) then
+						closestBall = ball
+						bestDist = dist
+					end
 				end
 			end
 		end
@@ -523,18 +698,14 @@ local function getSewerCameraPos(ballPos, arenaCenter, wUp, wRight, yAxis)
 		if not (hit and hit.successful) then
 			return camPos
 		end
-
-		return idealPos
 	end
+	return idealPos
 end
 
-local function getPlayersInArenaByCenter(players, split)
+local function getPlayersInArenaByCenter(players)
+	-- return list of all players, pixelpunks only, and samurais only
 	if #players < 1 then
-		if split then
-			return {}, {}
-		else
-			return {}
-		end
+		return {}, {}, {}
 	end
 
 	local pixelPunks = {}
@@ -543,8 +714,8 @@ local function getPlayersInArenaByCenter(players, split)
 
 	local center = ARENAS[currentArena].transform.position
 	local up, right, _, axisY = getWorldData(center)
-	local halfWidth = 2929
-	local halfLength = 4164
+	local halfWidth = 3000
+	local halfLength = 4200
 	local lowerHeight = -85
 	local upperHeight = 1330
 
@@ -561,33 +732,27 @@ local function getPlayersInArenaByCenter(players, split)
 				and lclZ >= lowerHeight
 				and lclZ <= upperHeight
 			then
+				table.insert(allPlayers, p)
 				local teamName = ""
 				if p.playerColor and p.playerColor.teamName then
 					teamName = p.playerColor.teamName
 				end
 
-				if split then
-					local nameLower = string.lower(teamName)
-					local isPixelPunks = string.find(nameLower, "pixel", 1, true) ~= nil
-					local isSamurai = string.find(nameLower, "samurai", 1, true) ~= nil
+				local nameLower = string.lower(teamName)
+				local isPixelPunks = string.find(nameLower, "pixel") ~= nil
+				local isSamurai = string.find(nameLower, "samurai") ~= nil
 
-					if isPixelPunks then
-						table.insert(pixelPunks, p)
-					end
-					if isSamurai then
-						table.insert(samurais, p)
-					end
-				else
-					table.insert(allPlayers, p)
+				if isPixelPunks then
+					table.insert(pixelPunks, p)
+				end
+				if isSamurai then
+					table.insert(samurais, p)
 				end
 			end
 		end
 	end
 
-	if split then
-		return pixelPunks, samurais
-	end
-	return allPlayers
+	return allPlayers, pixelPunks, samurais
 end
 
 local function getNearestPlayerToBall(ballPos: Vec3, players)
@@ -637,18 +802,67 @@ local function getNearestPlayerToBall(ballPos: Vec3, players)
 	return closestPlayer
 end
 
-local function updateLastTouch(ballPos, players)
+local function updateLastTouch(ballPos, arenaPlayers, currentGameData)
 	if not ballPos then
 		return
 	end
 
-	local arenaPlayers = getPlayersInArenaByCenter(players)
+	local gameTime = currentGameData.timeSeconds
+
 	local closestPlayer = getNearestPlayerToBall(ballPos, arenaPlayers)
 
 	if closestPlayer then
-		lastTouchPlayer = closestPlayer
-		local touchList
+		-- a player touched the ball this frame
+		-- check if it's the same as the last frame (dribbling)
+		if lastTouchPlayer and (closestPlayer.playerName == lastTouchPlayer.playerName) then
+			lastTouchTimestamp = simTime
+			lastTouchPlayer = closestPlayer
+			return
+		end
 
+		-- a new player touched the ball
+		local receiver = closestPlayer
+		if lastToucherInPossession then
+			-- a player with clear possession has lost the ball (stat trigger)
+			local passer = lastToucherInPossession
+			local passerName = passer.playerName
+
+			if receiver.teamIndex == passer.teamIndex then
+				-- completed pass
+				playerPassAttempts[passerName] = (playerPassAttempts[passerName] or 0) + 1
+				playerPassCompletions[passerName] = (playerPassCompletions[passerName] or 0) + 1
+
+				-- logGameEvent(gameTime, "PASS_ATTEMPT", passerName, receiver.playerName, passer.teamIndex)
+				-- logGameEvent(gameTime, "PASS_COMPLETE", passerName, receiver.playerName, passer.teamIndex)
+			else
+				-- turnover
+				playerTurnovers[passerName] = (playerTurnovers[passerName] or 0) + 1
+				-- logGameEvent(gameTime, "TURNOVER", passerName, receiver.playerName, passer.teamIndex)
+
+				local receiverName = receiver.playerName
+				local dist = passer.root.position:distance(receiver.root.position)
+
+				if dist <= tackleDistance then
+					-- steal (players were close)
+					playerSteals[receiverName] = (playerSteals[receiverName] or 0) + 1
+					-- logGameEvent(gameTime, "STEAL", receiverName, passerName, receiver.teamIndex)
+				else
+					-- incomplete pass (interception)
+					playerPassAttempts[passerName] = (playerPassAttempts[passerName] or 0) + 1
+					playerInterceptions[receiverName] = (playerInterceptions[receiverName] or 0) + 1
+					-- logGameEvent(gameTime, "PASS_INC", passerName, receiverName, passer.teamIndex)
+					-- logGameEvent(gameTime, "INTERCEPTION", receiverName, passerName, receiver.teamIndex)
+				end
+			end
+		end
+
+		-- scuffle logic until cooldown is over
+		lastToucherInPossession = nil -- clear possession is lost
+		lastTouchTimestamp = simTime
+		lastTouchPlayer = closestPlayer
+
+		-- assists
+		local touchList
 		if closestPlayer.teamIndex == 0 then
 			touchList = lastTouchesTeam0
 		elseif closestPlayer.teamIndex == 1 then
@@ -661,6 +875,16 @@ local function updateLastTouch(ballPos, players)
 				if #touchList > 2 then
 					table.remove(touchList, 3)
 				end
+			end
+		end
+	
+	else
+		-- nobody touched the ball this frame
+		if lastTouchPlayer and not lastToucherInPossession then
+			-- we were in a scuffle, ball is loose
+			if (simTime - lastTouchTimestamp) > scuffleCooldown then
+				-- scuffle is over
+				lastToucherInPossession = lastTouchPlayer
 			end
 		end
 	end
@@ -689,8 +913,7 @@ local function easeOutPow(headFrac: number, k: number)
 	return headFrac ^ k
 end
 
-local function drawBallTrail(dt, ballPos, players)
-	simTime += dt
+local function drawBallTrail(ballPos)
 	if ballPos == nil then
 		return
 	end
@@ -766,23 +989,20 @@ local function fovForScreenSize(distance: number, diameter: number, frac: number
 	if distance <= 1 then
 		return camera.fieldOfView
 	end
-	frac = math.max(1e-4, math.min(frac, 0.95))
 	frac = math.clamp(1e-3, frac, 0.95)
 	local f = 2 * math.atan(diameter / (frac * distance))
 	return math.deg(f)
 end
 
-local function autoZoomUpdate(ballPos: Vec3, dt)
+local function autoZoomUpdate(ballPos: Vec3, camPos: Vec3, dt)
 	if not autozoom.enabled then
 		return fieldOfView
 	end
 
-	local camPos = camera:getSmoothedPosition()
-	local dx, dy, dz = ballPos.x - camPos.x, ballPos.y - camPos.y, ballPos.z - camPos.z
-	local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+	local dist = ballPos:distance(camPos)
 
 	local target = fovForScreenSize(dist, autozoom.ballDiameter, autozoom.targetFrac)
-	target = math.max(MINFOV, math.min(MAXFOV, target))
+	target = math.clamp(target, MINFOV, MAXFOV)
 	local a = math.min(1.0, autozoom.followSpeed * dt)
 
 	local smoothedFOV = camera:getSmoothedFieldOfView()
@@ -792,14 +1012,9 @@ end
 --------------------------------------------------
 -- main tick helpers
 --------------------------------------------------
-local function updateScoreTracking(dt, slotId)
-	if not slotId then
-		return
-	end
-
-	local gameData = SpectatorGamemodes.getGamemodeData(slotId)
+local function updateScoreTracking(dt, gameData)
 	if gameData and gameData.teams and #gameData.teams >= 2 then
-		-- local status = gameData.isGameRunning -- don't really need rn
+		local gameTime = gameData.timeSeconds
 		local newScore0 = gameData.teams[1].score
 		local newScore1 = gameData.teams[2].score
 		local goalScored = false
@@ -825,11 +1040,13 @@ local function updateScoreTracking(dt, slotId)
 			-- assign goal to player
 			if lastGoalScorerName ~= "N/A" then
 				playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
+				-- logGameEvent(gameTime, "GOAL", lastGoalScorerName, nil, 0)
 			end
 
 			-- assign assist to player
 			if lastGoalAssisterName ~= "N/A" then
 				playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
+				-- logGameEvent(gameTime, "ASSIST", lastGoalAssisterName, lastGoalScorerName, 0)
 			end
 
 			-- auto-clip check
@@ -859,11 +1076,13 @@ local function updateScoreTracking(dt, slotId)
 			-- assign goal to player
 			if lastGoalScorerName ~= "N/A" then
 				playerGoalCounts[lastGoalScorerName] = (playerGoalCounts[lastGoalScorerName] or 0) + 1
+				-- logGameEvent(gameTime, "GOAL", lastGoalScorerName, nil, 0)
 			end
 
 			-- assign assist to player
 			if lastGoalAssisterName ~= "N/A" then
 				playerAssistCounts[lastGoalAssisterName] = (playerAssistCounts[lastGoalAssisterName] or 0) + 1
+				-- logGameEvent(gameTime, "ASSIST", lastGoalAssisterName, lastGoalScorerName, 0)
 			end
 
 			-- auto-clip check
@@ -881,6 +1100,8 @@ local function updateScoreTracking(dt, slotId)
 			lastTouchPlayer = nil
 			lastTouchesTeam0 = {}
 			lastTouchesTeam1 = {}
+			lastToucherInPossession = nil
+			lastTouchTimestamp = 0.0
 		end
 	end
 end
@@ -1009,11 +1230,8 @@ local function getInputs()
 		arenaChanged = true
 	end
 	if arenaChanged then
-		playerGoalCounts = {}
-		lastGoalScorerName = "N/A"
-		lastGoalTeam = -1
-		-- lastGoalScorerTeamName = ""
-		print("Arena changed, goal counts reset.")
+		resetStats()
+		print("Arena changed, all stats reset.")
 	end
 
 	if Input.getKeyDown(autozoomKey) then
@@ -1117,6 +1335,7 @@ local function worldDrawDebug(
 
 	visible = isBallVisible(rayOrigin, ballPos, radius)
 
+	-- check if camera can see ball
 	if not visible then
 		drawCircleOnBallOverlay(
 			camPos,
@@ -1137,7 +1356,8 @@ local function worldDrawDebug(
 end
 
 function onGui()
-	Gui.text("Current Server: " .. Network.getCurrentServer())
+	local serverName = Network.getCurrentServer()
+	Gui.text("Current Server: " .. serverName)
 	Gui.separatorText("Auto Sideline Dolly - Ball Tracker (by Yuki.10 & Mozzy)")
 	Gui.text(Icon.SatelliteDish .. Icon.SatelliteDish .. " READ THIS " .. Icon.SatelliteDish .. Icon.SatelliteDish)
 	Gui.indent()
@@ -1200,14 +1420,11 @@ function onGui()
 
 	if Gui.collapsingHeader("Scoreboard") then
 		local arena = (ARENAS and ARENAS[currentArena])
-		local slotId = arena2Slot[currentArena]
-		local gameData = (slotId and SpectatorGamemodes.getGamemodeData(slotId))
-
-		if not arena or not gameData or not gameData.teams or #gameData.teams < 2 then
+		if not arena or not currentGameData or not currentGameData.teams or #currentGameData.teams < 2 then
 			Gui.text("Waiting for game data...")
 		else
 			-- get teams
-			local pixelPunks, samurais = getPlayersInArenaByCenter(getGameData().players, true)
+			local pixelPunks, samurais = currentPixelPunks, currentSamurais
 			local teamColors = arena:getTeamColorsArray()
 			local team0Color = teamColors[1]
 			local team1Color = teamColors[2]
@@ -1215,8 +1432,8 @@ function onGui()
 			local team1Name = (team1Color and team1Color.teamName) or "samurais"
 
 			-- get scores
-			local score0 = gameData.teams[1].score
-			local score1 = gameData.teams[2].score
+			local score0 = currentGameData.teams[1].score
+			local score1 = currentGameData.teams[2].score
 
 			-- display scores
 			Gui.text(string.format("%s   %d", team0Name, score0))
@@ -1237,8 +1454,11 @@ function onGui()
 			end
 
 			-- display game clock
-			local status = gameData.isGameRunning and "Running" or "Not Running"
-			Gui.text(string.format("Clock: %s (%s)", formatTime(gameData.timeSeconds), status))
+			local status = currentGameData.isGameRunning and "Running" or "Not Running"
+			Gui.text(string.format("Clock: %s (%s)", formatTime(currentGameData.timeSeconds), status))
+
+			-- display round
+			Gui.text(string.format("Round: %d", currentRound))
 
 			-- display last scorer
 			if lastGoalTeam == 0 then
@@ -1249,10 +1469,10 @@ function onGui()
 				Gui.text("Last Goal: N/A")
 			end
 
-			if Gui.button(Icon.Eraser .. " Reset Goal Counts") then
-				playerGoalCounts = {}
+			if Gui.button(Icon.Eraser .. " Reset Player Stats") then
+				resetStats()
 			end
-			Gui.setItemTooltip("Reset player goal counts in the roster below.")
+			Gui.setItemTooltip("Reset player stat counts in the roster below.")
 
 			if Gui.beginTable("rosters", 2) then
 				Gui.tableSetupColumn(team0Name)
@@ -1268,7 +1488,12 @@ function onGui()
 						local playerName = team0List[i].playerName
 						local goals = playerGoalCounts[playerName] or 0
 						local assists = playerAssistCounts[playerName] or 0
-						Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
+						local passesC = playerPassCompletions[playerName] or 0
+						local passesA = playerPassAttempts[playerName] or 0
+						local turnovers = playerTurnovers[playerName] or 0
+						local steals = playerSteals[playerName] or 0
+						local interceptions = playerInterceptions[playerName] or 0
+						Gui.text(string.format("%s (G:%d, A:%d, P:%d/%d, TO:%d, STL:%d, INT:%d)", playerName, goals, assists, passesC, passesA, turnovers, steals, interceptions))
 					end
 
 					Gui.tableNextColumn()
@@ -1276,7 +1501,12 @@ function onGui()
 						local playerName = team1List[i].playerName
 						local goals = playerGoalCounts[playerName] or 0
 						local assists = playerAssistCounts[playerName] or 0
-						Gui.text(string.format("%s (G: %d, A: %d)", playerName, goals, assists))
+						local passesC = playerPassCompletions[playerName] or 0
+						local passesA = playerPassAttempts[playerName] or 0
+						local turnovers = playerTurnovers[playerName] or 0
+						local steals = playerSteals[playerName] or 0
+						local interceptions = playerInterceptions[playerName] or 0
+						Gui.text(string.format("%s (G:%d, A:%d, P:%d/%d, TO:%d, STL:%d, INT:%d)", playerName, goals, assists, passesC, passesA, turnovers, steals, interceptions))
 
 					end
 				end
@@ -1330,6 +1560,13 @@ function onGui()
 		saveToConfig()
 		print("Saved current settings")
 	end
+	
+	Gui.sameLine()
+	if Gui.button(Icon.Upload .. " Export Game Log") then
+		exportGameLog()
+	end
+	Gui.setItemTooltip("Print full summary of game and player stats to log file.")
+
 	Gui.sameLine()
 	if Gui.button(Icon.WindowClose .. " Leave Server") then
 		Network.disconnectFromServer()
@@ -1344,11 +1581,8 @@ function onGui()
 			if Gui.selectable(name, selected) then
 				if currentArena ~= name then
 					currentArena = name
-					playerGoalCounts = {}
-					lastGoalScorerName = "N/A"
-					lastGoalTeam = -1
-					-- lastGoalScorerTeamName = ""
-					print("Arena changed, goal counts reset.")
+					resetStats()
+					print("Arena changed, all stats reset.")
 				end
 			end
 			if selected then
@@ -1447,6 +1681,12 @@ function onGui()
 	positionSmoothing = Gui.sliderFloat("Dolly smoothing", positionSmoothing, 0, 1)
 	fieldOfViewSmoothing = Gui.sliderFloat("FOV Smoothing", fieldOfViewSmoothing, 0, 1)
 
+	Gui.separatorText("Stat Tracking")
+	scuffleCooldown = Gui.sliderFloat("Scuffle Cooldown (s)", scuffleCooldown, 0.2, 3)
+	Gui.setItemTooltip("Time a player must be the last to touch the ball to gain 'clear' posession.")
+	tackleDistance = Gui.sliderFloat("Tackle Distance", tackleDistance, 50, 500)
+	Gui.setItemTooltip("Max distance between players for a posession change to count as a turnover instead of an incomplete pass.")
+
 	Gui.separatorText("Ball Trail")
 	trailSeconds = Gui.sliderFloat("Trail length (s)", trailSeconds, 0, 2)
 	MAX_THICKNESS = Gui.sliderFloat("Max Thickness", MAX_THICKNESS, 6, 30)
@@ -1459,12 +1699,13 @@ function onGui()
 	BALL_RADIUS = Gui.sliderFloat("Ball Radius", BALL_RADIUS, 5, 50)
 	searchRadiusMult = Gui.sliderFloat("Search Radius x Ball Radius", searchRadiusMult, 1.0, 4.0)
 	if Gui.button("Send Server Name to logs") then
-		print("MYCURRENTSERVER: " .. Network.getCurrentServer())
+		print("MYCURRENTSERVER: " .. serverName)
 	end
 end
 
 function tick(dt)
 	-- 1. init and data fetch
+	simTime += dt
 	if not ARENAS or not ARENAS[currentArena] then 
 		initializeArenas()
 		if not ARENAS or not ARENAS[currentArena] then
@@ -1473,42 +1714,61 @@ function tick(dt)
 	end 
 	local a = ARENAS[currentArena]
 	local aCoords = a.transform.position
-	local frame = getGameData()
-	local balls = frame.balls
-	local players = frame.players
-	local camPos = camera:getSmoothedPosition()
 
+	-- cache frame data
+	currentFrame = getGameData()
+	currentSlotId = arena2Slot[currentArena]
+	currentGameData = currentSlotId and SpectatorGamemodes.getGamemodeData(currentSlotId)
+	local balls = currentFrame.balls
+	local players = currentFrame.players
+	currentArenaPlayers, currentPixelPunks, currentSamurais = getPlayersInArenaByCenter(players)
+	
 	-- 2. kbm input handling
 	getInputs()
-
+	
 	-- 3. world frame setup
 	local origin = Vec3.new(aCoords.x, aCoords.y, aCoords.z)
 	local worldUp, worldRight, worldForward, axisY = getWorldData(origin)
-
+	
 	-- 4. ball pos/vel
-	local ballPos, ballVel = getBallPosVel(aCoords, balls, worldUp)
+	local ballPos, ballVel = getBallPosVel(aCoords, balls, worldUp, worldRight, axisY)
 	if not ballPos then
 		ballPos = origin
 		ballVel = Vec3.zeroVector
 	end
+	
+	-- 5. ball trail
+	drawBallTrail(ballPos)
+	
+	-- 6. score tracking and round logic
+	if currentGameData then
+		if currentGameData.isGameRunning then
+			updateLastTouch(ballPos, currentArenaPlayers, currentGameData)
+			updateScoreTracking(dt, currentGameData)
+		end
+		if currentGameData.isGameRunning == false and wasGameRunning == true then
+			-- round ended
+			currentRound += 1
+			-- logGameEvent(currentGameData.timeSeconds, "ROUND_END", "Round " .. currentRound, nil, nil)
+		end
 
-	-- 5. ball touch and trail
-	updateLastTouch(ballPos, players)
-	drawBallTrail(dt, ballPos, players)
-
-	-- 6. score tracking
-	local slotId = arena2Slot[currentArena]
-	updateScoreTracking(dt, slotId)
-
+		-- update previous round state
+		wasGameRunning = currentGameData.isGameRunning
+	else
+		-- no game data, reset round state
+		wasGameRunning = false
+	end
+	
 	-- 7. camera pos calculation
 	local prevSide = currentSide
 	local dollyPos = calculateSidelineCameraPosition(ballPos, origin, worldUp, worldRight, axisY, dt)
 	local currSide = currentSide
-
+	
 	-- 8. update camera state
-	fieldOfView = autoZoomUpdate(ballPos, dt)
+	local camPos = camera:getSmoothedPosition()
+	fieldOfView = autoZoomUpdate(ballPos, camPos, dt)
 	updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, fieldOfView)
-
+	
 	-- 9. drawing
 	if drawBallOutline then
 		local camUp, camRight, camForward = getCamVectors()
