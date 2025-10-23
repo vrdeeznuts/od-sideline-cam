@@ -29,8 +29,16 @@ This camera script contains many features that make it ideal for competitive pla
 1. Ball outline when the geo is blocking the view.
 1. Colored ball trail to indicate who touched it last.
 1. Game scoreboard in the GUI:
-    - Team rosters (with goals and assists per player)
+    - Team rosters and stats
+        - Goals
+        - Assists
+        - Total pass attempts
+        - Completed passes
+        - Turnovers
+        - Steals
+        - Interceptions
     - Score
+    - Round number
     - Clock
     - Last player who scored
 1. Auto-clipping functionality for whenever goals are scored. [^1]
@@ -183,8 +191,12 @@ Things I plan to add or want to add to this camera.
 - [ ] Add auto-select arena based on whitelist
 - [ ] Add more info to scoreboard GUI
     - [x] Assists
+    - [x] Pass Attempts
+    - [x] Completed Passes
+    - [x] Turnovers
+    - [x] Steals (still tweaking)
+    - [x] Interceptions
     - [ ] Saves
-    - [ ] Other stats? (pass completion, tackles, etc.)
 - [x] update keybinds
     - [x] save (replace swap sideline button with different key)
 - [ ] I'm open to requests and/or feedback
