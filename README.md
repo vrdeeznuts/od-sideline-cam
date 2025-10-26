@@ -155,7 +155,7 @@ Recommended Settings (I leave the unmentioned settings as default):
 
 # What's Included
 - `yuki.SIDE.luau` - this is the camera script that you would put with other camera scripts. It has 99% of the functionality but doesn't include the auto-clipping (the spectator API is sandboxed, so it can't send keystrokes by itself).
-- `Goal Watcher.ps1` - this is a Powershell script that enables the auto-clipping feature. It listens for certain messages in the A2.log (which is auto-generated each time you run spec) to trigger your clipping hotkey.
+- `OD Trigger Watcher.ps1` - this is a Powershell script that enables the auto-clipping feature. It listens for certain messages in the A2.log (which is auto-generated each time you run spec) to trigger your clipping hotkey.
 
 # Setup
 You can choose from either setup instructions below.<br> 
@@ -169,26 +169,25 @@ You can choose from either setup instructions below.<br>
 
 ## Option 2: Setup With Auto-Clipping
 1. Download `yuki.SIDE.luau` and put it in your `...\Documents\Another-Axiom\A2\Cameras\Behaviors\` folder (same has how you'd normally do it with any other camera script).
-1. Download `Goal Watcher.ps1`. Put it in a safe folder (I recommend making a new folder and putting it on your desktop).
+1. Download `OD Trigger Watcher.ps1`. Put it in a safe folder (I recommend making a new folder and putting it on your desktop).
 1. If you've never used Powershell scripting before:
     1. Click the Windows key -> Type `powershell` -> Click `Run as Administrator` -> Click `Yes` in the admin pop-up.
     1. In the Powershell window that pops up, type `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` -> press `Enter` -> Type `a`, `Enter` if prompted (this allows you to run Powershell scripts, which is used to send the clipping hotkey when goals are scored), and finally close the Powershell terminal. <br>
-    1. Go back to the File Explorer where the `Goal Watcher.ps1` file is located and Right click on the file -> Click Properties.
+    1. Go back to the File Explorer where the `OD Trigger Watcher.ps1` file is located and Right click on the file -> Click Properties.
     1. In the Properties window, Click the `Unblock` checkbox then hit `Apply`. Click `OK` to close the window.
 1. (Optional) Set the script up as a desktop shortcut (otherwise you will have to Right Click the file -> Click `Run with Powershell` each time).
     1. Right Click the file -> Click `Send to` -> Click `Desktop (create shortcut)`. <br>
     (If you don't see `Send to` as an option, you might need to click `Show more options` at the bottom first.)
     1. Right Click the shortcut you created -> Click `Properties`.
     1. In the Properties window in the `Target` text box, click the textbox and go to the beginning of the line. Add `powershell.exe ` in front of the file path<br> 
-    It should now look something like `powershell.exe "C:\Users\username\OneDrive\Desktop\pwsh_scripts\Medal Clipper\Goal Watcher.ps1"`.
+    It should now look something like `powershell.exe "C:\Users\username\OneDrive\Desktop\pwsh_scripts\Medal Clipper\OD Trigger Watcher.ps1"`.
     1. (Optional) Add a Shortcut key.
     1. Click `Apply` -> Click `OK`.
 1. Done.
 
 Now with the setup complete, you can run the script. The first time you run it, it will prompt for the following info:
 - `file path to A2.log`. Probably leave this as default (Click `Enter`)
-- `delay`: how many seconds after a goal is scored to "press" your hotkey (default 0; change if you want to wait a few seconds after the goal before clipping)
-- `hotkey`: the specific hotkey string you use for clipping (Default is F8 key). If you use a different function key, just make sure to put squiggly brackets around it (e.g., `{F6}`, `{F7}`, etc.). If you use a keyboard shortcut or macro, here's a helpful list of examples (full list of key->code mappings can be found at [Microsoft System Windows Forms](https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.sendkeys?view=windowsdesktop-10.0)):
+- `goalMedalHotkey`: the specific hotkey string you use for clipping (Default is F8 key). If you use a different function key, just make sure to put squiggly brackets around it (e.g., `{F6}`, `{F7}`, etc.). If you use a keyboard shortcut or macro, here's a helpful list of examples (full list of key->code mappings can be found at [Microsoft System Windows Forms](https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.sendkeys?view=windowsdesktop-10.0)):
     - Ctrl:   `^` (example: `^c` for Ctrl+C)
     - Alt:    `%` (example: `%{F4}` for Alt+F4)
     - Shift:  `+` (example: `+a` for Shift+a)
@@ -198,9 +197,26 @@ Now with the setup complete, you can run the script. The first time you run it, 
     - Delete: `{DEL}`
     - Home:   `{HOME}`
     - End:    `{End}`
+    - Full Example (Ctrl+Alt+Shift+F11): `^%+{F11}`
 
 ### Auto-Clipping Notice
 Because the camera scripts are sandboxed (aka no way to interact with your computer outside of the game), I had to write that Powershell script to be able to send keystrokes. It works by listening to the auto-generated A2.log file (usually found at `%LOCALAPPDATA%\A2\Saved\Logs\A2.log`) for a specific string - `"GOAL_SCORED_MEDAL_TRIGGER"`. When the script sees that string in the log, it will send your specified clipping hotkey after an optional delay. Refer to the [auto-clipping instructions](#option-2-setup-with-auto-clipping) below to set it up.
+
+## Option 2.1: OBS Chapter Markers and Triggers
+Chapter markers are the timestamps you would put in the description of a YouTube video to mark different sections of the video (e.g., Intro, Ad, Gameplay, etc.). The markers added to the script will provide timestamps of the rounds' start/end, as well as goals (if you've enabled the whitelist, only goals scored by your whitelisted players will be logged).
+
+Triggers are simply just the string being printed to the log (e.g., `"GOAL_SCORED_MEDAL_TRIGGER"`, `"ROUND_START_TRIGGER"`, etc.) that the Powershell script watches the A2.log for, which triggers hotkeys. It currently watches for round start, round end, and goals scored.
+
+To get this set up, you will need to download and configure the OBS Chapter Marker Manager - https://obsproject.com/forum/threads/streamup-chapter-marker-manager.176239/. Once that's installed, you can add individual markers for each trigger. After adding a trigger for Goal, Round Start, and Round End, open OBS settings and add a hotkey for each. 
+
+Additionally, you can add hotkeys for starting/stopping recording (*note: these only work if OBS is the active window*). To trigger start/stop recording in-game, run the `OD Trigger Watcher.ps1` script, click the OBS window so it's active, and then with your hands in the air, hold down the triggers on both hands while not touching the grip or face of the controllers.
+#### OBS Triggers → Hotkeys
+- Goal OBS trigger → `Ctrl + Alt + Shift + Num *`
+- Round Start OBS trigger → `Ctrl + Alt + Shift + Num /`
+- Round End OBS trigger → `Ctrl + Alt + Shift + Backspace`
+- Start Recording OBS trigger → `Ctrl + Alt + Shift + F11`
+- Stop Recording OBS trigger → `Ctrl + Alt + Shift + Num -`
+
 
 # Future Work
 Things I plan to add or want to add to this camera.
