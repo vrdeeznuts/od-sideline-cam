@@ -1,8 +1,9 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera v1.6 for 4v4. 
+Orion Drift Sideline Camera v2.0 for 4v4. 
 
 # Table of Contents
 - [Description](#description)
+- [Updates](#updates-since-initial-release)
 - [Demo](#demo)
 - [How To](#how-to)
     - [Download Files from GitHub](#download-a-file-from-github)
@@ -48,6 +49,21 @@ At its foundation, this camera follows the ball. Since there are plenty of POV/3
 [^1]: The auto-clipping feature is an external Powershell script that reads the auto-generated A2.log file and watches for a specific string before triggering your clipping software's hotkey.
 
 NOTE: *The spectator feature is still under active development and is subject to change throughout closed early access.*
+
+# Updates Since Intitial Release
+- Updated keybinds (save settings keybind)
+- More stats and logging to scoreboard
+    - Goals
+    - Assists
+    - Below stats still need tweaking
+    - Pass Completion/Attempts
+    - Turnovers
+    - Steals
+    - Interceptions
+- Triggers (needs additional setup)
+    - Start/Stop recording with hand gesture
+    - Round start/end
+    - Goal scored
 
 # Demo
 [iVi vs S7](https://youtu.be/LM-a9P_5bfg?si=wgDXQLXjnteWxeyO) YouTube video (unlisted)

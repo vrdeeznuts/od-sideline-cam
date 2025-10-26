@@ -1,8 +1,8 @@
 metadata = {
 	name = "Sideline Cam (LIVE)",
-	description = "4v4 automated sideline dolly camera with arena selection, ball tracking, automated zoom (FOV), automated side switching, endzone riser, keyboard/mouse controls, and somewhat documented GUI. Implementation by Yuki, ideation by Mozzy.",
+	description = "4v4 automated sideline dolly camera with arena selection, ball tracking, automated zoom (FOV), automated side switching, endzone riser/hook, keyboard/mouse controls, auto-clipping, OBS chapter marker triggers, hand gesture recording start/stop, and somewhat documented GUI. Implementation by Yuki, ideation by Mozzy.",
 	authors = { "Yuki.10", "Mozzy" },
-	version = "1.6",
+	version = "2.0",
 	defaultKeybind = "NumPadZero",
 }
 
@@ -167,6 +167,27 @@ local currentArenaPlayers = {}
 local currentPixelPunks = {}
 local currentSamurais = {}
 
+-- triggers
+local goalTriggerString = "GOAL_SCORED_MEDAL_TRIGGER"
+local chapterTriggerString = "CHAPTER_TRIGGER"
+local roundStartTriggerString = "ROUND_START_TRIGGER"
+local roundEndTriggerString = "ROUND_END_TRIGGER"
+local startRecordingTriggerString = "START_RECORDING_TRIGGER"
+local stopRecordingTriggerString = "STOP_RECORDING_TRIGGER"
+
+local RECORDING_STATE = "STOPPED"
+local TRIGGER_HOLD_DURATION = 2.0
+local TRIGGER_COOLDOWN = 5.0
+local triggerHoldTimer = 0.0
+local triggerCooldownTimer = 0.0
+local masterPlayerName = config.masterPlayerName or "Yuki.10"
+
+local CONFIRMATION_DURATION = 2.0
+local CONFIRMATION_DISTANCE = 300
+local showConfirmationTimer = 0.0
+local confirmationTargetPosition = nil
+local confirmationTargetRotation = nil
+
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
@@ -228,6 +249,7 @@ local function saveToConfig()
 
 	config.whitelist = whitelist
 	config.whitelistEnabled = whitelistEnabled
+	config.masterPlayerName = config.masterPlayerName
 	saveConfig()
 end
 
@@ -267,6 +289,7 @@ function main()
 
 		whitelist = {},
 		whitelistEnabled = false,
+		masterPlayerName = "Yuki.10",
 	})
 end
 
@@ -802,6 +825,68 @@ local function getNearestPlayerToBall(ballPos: Vec3, players)
 	return closestPlayer
 end
 
+local function decodePoseBits(poseBits)
+	return {
+		ThumbDown = bit32.band(poseBits, 1) ~= 0, -- True if thumb on face of controller (Touch sensor)
+		TriggerDown = bit32.band(poseBits, bit32.lshift(1, 1)) ~= 0, -- True if Trigger is pressed down
+		TriggerPoint = bit32.band(poseBits, bit32.lshift(1, 2)) ~= 0, -- True if finger is not on trigger (Touch sensor)
+		GripDown = bit32.band(poseBits, bit32.lshift(1, 3)) ~= 0, -- True if Grip is pressed down
+		FullHandPoseOverride = bit32.rshift(poseBits, 4) % 16,
+	}
+end
+
+local function updateRecordingTrigger(dt, player: ReplayPlayer)
+	-- do nothing if on cooldown
+	if triggerCooldownTimer > 0 then
+		triggerCooldownTimer -= dt
+		return
+	end
+
+	-- finger poses and hand collisions
+	local leftHandPose = decodePoseBits(player.leftHandPosebits)
+	local rightHandPose = decodePoseBits(player.rightHandPosebits)
+	local leftHandNotTouching = player.leftColliding == false
+	local rightHandNotTouching = player.rightColliding == false
+	-- print("Left Trigger: ".. leftHandPose.TriggerDown.. " | Left Thumb: ".. leftHandPose.ThumbDown.. " | Left Not Touching: ".. leftHandNotTouching.. " | Right Trigger: ".. rightHandPose.TriggerDown.. " | Right Thumb: ".. rightHandPose.ThumbDown.. " | Right Not Touching: ".. rightHandNotTouching)
+
+	local isGestureActive = 
+		leftHandPose.TriggerDown == true and -- trigger pressed
+		leftHandPose.ThumbDown == false and -- thumb not touching
+		-- leftHandPose.TriggerPoint == false and -- finger on trigger
+		leftHandNotTouching and 
+		rightHandPose.TriggerDown == true and 
+		rightHandPose.ThumbDown == false and 
+		-- rightHandPose.TriggerPoint == false and
+		rightHandNotTouching
+
+	if isGestureActive then
+		triggerHoldTimer += dt
+
+		if triggerHoldTimer >= TRIGGER_HOLD_DURATION then
+			-- successful gesture completion
+			if RECORDING_STATE == "STOPPED" then
+				print(startRecordingTriggerString)
+				RECORDING_STATE = "RECORDING"
+			else
+				print(stopRecordingTriggerString)
+				RECORDING_STATE = "STOPPED"
+			end
+
+			-- reset timer and cooldown
+			triggerHoldTimer = 0.0
+			triggerCooldownTimer = TRIGGER_COOLDOWN
+
+			-- start confirmation
+			showConfirmationTimer = CONFIRMATION_DURATION
+			confirmationTargetPosition = player.head.position
+			confirmationTargetRotation = player.head.rotation
+		end
+	else
+		-- inactive gesture, reset hold timer
+		triggerHoldTimer = 0.0
+	end
+end
+
 local function updateLastTouch(ballPos, arenaPlayers, currentGameData)
 	if not ballPos then
 		return
@@ -1051,7 +1136,8 @@ local function updateScoreTracking(dt, gameData)
 
 			-- auto-clip check
 			if isClipAllowed(lastGoalScorerName) then
-				print("GOAL_SCORED_MEDAL_TRIGGER")
+				print(chapterTriggerString)
+				print(goalTriggerString)
 			end
 			print(string.format("[%s] Goal for pixelpunks by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
 		
@@ -1087,7 +1173,8 @@ local function updateScoreTracking(dt, gameData)
 
 			-- auto-clip check
 			if isClipAllowed(lastGoalScorerName) then
-				print("GOAL_SCORED_MEDAL_TRIGGER")
+				print(chapterTriggerString)
+				print(goalTriggerString)
 			end
 			print(string.format("[%s] Goal for samurais by: %s (Assist: %s)", formatTime(gameData.timeSeconds), lastGoalScorerName, lastGoalAssisterName))
 			-- print(string.format("[%s] Goal for samurais by: %s", gameTime, lastGoalScorerName))
@@ -1722,23 +1809,42 @@ function tick(dt)
 	local balls = currentFrame.balls
 	local players = currentFrame.players
 	currentArenaPlayers, currentPixelPunks, currentSamurais = getPlayersInArenaByCenter(players)
+
+	-- obs recording trigger setup
+	local masterPlayer = currentFrame:getPlayerByName(masterPlayerName)
+	if masterPlayer then
+		-- print("Master player found: " .. masterPlayerName)
+		updateRecordingTrigger(dt, masterPlayer)
+	end
 	
 	-- 2. kbm input handling
 	getInputs()
+
+	-- 3. check for recording trigger confirmation override
+	if showConfirmationTimer > 0 then
+		showConfirmationTimer -= dt
+		local forwardVector = confirmationTargetRotation:getForwardVector()
+		local camPosition = confirmationTargetPosition + (forwardVector * CONFIRMATION_DISTANCE)
+		local camTarget = confirmationTargetPosition
+
+		camera.positionSmoothing = 0.0
+		camera.rotationSmoothing = 0.0
+		camera.position = camPosition
+		camera:lookAt(camTarget, gravity.upDirection)
+		camera.fieldOfView = fieldOfView
+		return
+	end
 	
-	-- 3. world frame setup
+	-- 4. world frame setup
 	local origin = Vec3.new(aCoords.x, aCoords.y, aCoords.z)
 	local worldUp, worldRight, worldForward, axisY = getWorldData(origin)
 	
-	-- 4. ball pos/vel
+	-- 5. ball pos/vel
 	local ballPos, ballVel = getBallPosVel(aCoords, balls, worldUp, worldRight, axisY)
 	if not ballPos then
 		ballPos = origin
 		ballVel = Vec3.zeroVector
 	end
-	
-	-- 5. ball trail
-	drawBallTrail(ballPos)
 	
 	-- 6. score tracking and round logic
 	if currentGameData then
@@ -1749,7 +1855,14 @@ function tick(dt)
 		if currentGameData.isGameRunning == false and wasGameRunning == true then
 			-- round ended
 			currentRound += 1
+			print(chapterTriggerString)
+			print(roundEndTriggerString)
 			-- logGameEvent(currentGameData.timeSeconds, "ROUND_END", "Round " .. currentRound, nil, nil)
+		elseif currentGameData.isGameRunning == true and wasGameRunning == false then
+			-- round started
+			print(chapterTriggerString)
+			print(roundStartTriggerString)
+			-- logGameEvent(currentGameData.timeSeconds, "ROUND_START", "Round " .. currentRound, nil, nil)
 		end
 
 		-- update previous round state
@@ -1768,8 +1881,10 @@ function tick(dt)
 	local camPos = camera:getSmoothedPosition()
 	fieldOfView = autoZoomUpdate(ballPos, camPos, dt)
 	updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, fieldOfView)
-	
+
 	-- 9. drawing
+	drawBallTrail(ballPos)
+	
 	if drawBallOutline then
 		local camUp, camRight, camForward = getCamVectors()
 		worldDrawDebug(aCoords, ballPos, camPos, camUp, camRight, camForward, dt)
