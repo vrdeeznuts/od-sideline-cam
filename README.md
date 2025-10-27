@@ -1,5 +1,5 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera v2.0 for 4v4.
+Orion Drift Sideline Camera v2.1 for 4v4.
 
 
 > *The spectator feature is still under active development and is subject to change throughout closed early access.*
