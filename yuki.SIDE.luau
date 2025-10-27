@@ -1,8 +1,8 @@
 metadata = {
 	name = "Sideline Cam (LIVE)",
-	description = "4v4 automated sideline dolly camera with arena selection, ball tracking, automated zoom (FOV), automated side switching, endzone riser/hook, keyboard/mouse controls, auto-clipping, OBS chapter marker triggers, hand gesture recording start/stop, and somewhat documented GUI. Implementation by Yuki, ideation by Mozzy.",
+	description = "4v4 automated sideline dolly camera with arena selection, ball tracking, automated zoom (FOV), automated side switching, endzone riser, keyboard/mouse controls, and somewhat documented GUI. Implementation by Yuki, ideation by Mozzy.",
 	authors = { "Yuki.10", "Mozzy" },
-	version = "2.0",
+	version = "1.6",
 	defaultKeybind = "NumPadZero",
 }
 
@@ -80,7 +80,7 @@ local playerSteals = {}
 local playerInterceptions = {}
 
 local scuffleCooldown = 1.0 -- test turnover cooldown 
-local tackleDistance = 150 -- test tackle distance
+local tackleDistance = 500 -- test tackle distance
 
 local lastTouchTimestamp = 0.0
 local lastToucherInPossession = nil -- track whoever has "clear" possession
@@ -145,8 +145,8 @@ local yukiCamSets = config.yukiCamSets or false
 -- ball trail
 local trail: { { p: Vec3, t: number } } = {}
 local simTime = 0.0
-local trailSeconds = config.trailSeconds or 0.2
-local BALL_RADIUS = 20
+local trailSeconds = config.trailSeconds or 0.15
+local BALL_RADIUS = 17.5
 local searchRadiusMult = config.searchRadiusMult or 1.53
 local TRAIL_HEAD_OFFSET = config.TRAIL_HEAD_OFFSET or 3
 local glowMultiplier = config.glowMultiplier or 1.5
@@ -1642,6 +1642,8 @@ function onGui()
 	end
 	Gui.setItemTooltip("This works IF you've downloaded and set up the Powershell script.")
 
+	-- save/export/leave
+	Gui.separatorText(Icon.Save .. " Save, " .. Icon.FileExport .. " Export Stats, " .. Icon.DoorOpen .. " Leave Server")
 	if Gui.button(Icon.Save .. " Save Current Settings") then
 		-- updateConfig()
 		saveToConfig()
@@ -1657,6 +1659,18 @@ function onGui()
 	Gui.sameLine()
 	if Gui.button(Icon.WindowClose .. " Leave Server") then
 		Network.disconnectFromServer()
+	end
+
+	if Gui.collapsingHeader("Set player for hand gesture start/stop recording functionality") then
+		masterPlayerName = Gui.inputText("Your Meta username", masterPlayerName)
+		Gui.setItemTooltip("The player whose hand gestures will be tracked for recording.")
+		Gui.text("To start/stop recording, make sure OBS is the active window and do the following gestures:")
+		Gui.indent()
+		Gui.text("1. Both hands off the ground")
+		Gui.text("2. Hold down both triggers for 2 seconds (index fingers) without \ntouching your thumbs or middle fingers to the controllers.")
+		Gui.text("The camera will jump in front of you temporarily to let you know it worked.")
+		Gui.text("To stop recording, do the same gesture again.")
+		Gui.unindent()
 	end
 
 	-- arena selection
@@ -1679,34 +1693,39 @@ function onGui()
 		Gui.endCombo()
 	end
 
-	-- east/west toggle
+	-- 1/2/3 and east/west toggles
 	if Gui.button(Icon.ArrowUp) then
 		currentArena = cycleArenaName(currentArena, false)
 	end
 	Gui.setItemTooltip("Move to next arena on same side (" .. Icon.ArrowUp .. ")")
+
 	Gui.sameLine()
 	if Gui.button(Icon.ArrowDown) then
 		currentArena = cycleArenaName(currentArena, true)
 	end
 	Gui.setItemTooltip("Move to next arena on same side (" .. Icon.ArrowDown .. ")")
+
 	Gui.sameLine()
 	if Gui.button("Toggle East / West Arena") then
 		currentArena = toggleEastWestName(currentArena)
 	end
-	Gui.setItemTooltip("'a' to swap arenas")
+	Gui.setItemTooltip("'a' to swap East/West")
 	Gui.sameLine()
 	if Gui.button("Switch Sideline") then
 		currentSide *= -1
 	end
 	Gui.setItemTooltip("'s' to switch sides")
+
 	autoSwitchSides = Gui.checkbox("Auto-switch Sideline", autoSwitchSides)
 	Gui.setItemTooltip("Switch sidelines automatically when the ball gets too far")
 	Gui.sameLine()
 	if autoSwitchSides then
 		sideSwitchInstant = Gui.checkbox("Instant side switch", sideSwitchInstant)
+		Gui.setItemTooltip("No smoothing when switching sides")
 	end
 	camera.showNameTags = Gui.checkbox("Show Nametags", camera.showNameTags)
 	Gui.setItemTooltip("'n' to toggle")
+
 	drawBallOutline = Gui.checkbox("Ball Outline when Hidden", drawBallOutline)
 	Gui.setItemTooltip("Show ball outline when camera is obstructed")
 	Gui.sameLine()
@@ -1723,15 +1742,16 @@ function onGui()
 	if yukiCamSets then
 		postProcessSettings.bloomIntensity = 0.01
 		postProcessSettings.autoExposureBias = -0.001
-	end
-	Gui.sameLine()
-	if Gui.smallButton(Icon.Sync .. " reset exposure") then
+	else
 		postProcessSettings:reset()
 		yukiCamSets = false
 	end
 
 	-- auto zoom
 	autozoom.enabled = Gui.checkbox("Auto Zoom", autozoom.enabled)
+	Gui.setItemTooltip(
+		"Automatically adjust FOV so the ball takes up a consistent \nportion of the screen. Press 'z' to enable/disable."
+	)
 	Gui.newLine()
 
 	-- endzone
@@ -1751,42 +1771,50 @@ function onGui()
 		-- hookScaleY = Gui.sliderFloat("How much the camera moves backward", hookScaleY, 0, 10)
 	end
 
-	-- max camera height
-	-- maxBallHeight = Gui.sliderInt("Max camera height", maxBallHeight, 300, 1329)
-	-- sideline distance to arena center
-	sideSwitchDistance = Gui.sliderInt("Sideline distance (x) from arena center", sideSwitchDistance, 100, 3000)
-	Gui.setItemTooltip("Camera's position width")
-	sidelineLength = Gui.sliderInt("Dolly rail length (y) from half field", sidelineLength, 200, 5000)
-	Gui.setItemTooltip("Probably don't change this one unless you disable the endzone arc.")
-	ballHeightOffset = Gui.sliderInt("Ball height offset", ballHeightOffset or 200, 0, 500)
-	-- fov/zoom
-	fieldOfView = Gui.sliderFloat("FOV", fieldOfView, MINFOV, MAXFOV)
-	Gui.setItemTooltip("mouse scroll to increase/decrease FOV. Auto zoom must be disabled.")
-	-- smoothing
-	rotationSmoothing = Gui.sliderFloat("Ball tracking smoothing", rotationSmoothing, 0, 1)
-	Gui.setItemTooltip("Make the camera turn more smoothly.")
-	positionSmoothing = Gui.sliderFloat("Dolly smoothing", positionSmoothing, 0, 1)
-	fieldOfViewSmoothing = Gui.sliderFloat("FOV Smoothing", fieldOfViewSmoothing, 0, 1)
+	if Gui.collapsingHeader("Camera Tweaks") then
+		-- max camera height
+		-- maxBallHeight = Gui.sliderInt("Max camera height", maxBallHeight, 300, 1329)
+		-- sideline distance to arena center
+		sideSwitchDistance = Gui.sliderInt("Sideline distance (x) from arena center", sideSwitchDistance, 100, 3000)
+		Gui.setItemTooltip("Camera's position width")
+		sidelineLength = Gui.sliderInt("Dolly rail length (y) from half field", sidelineLength, 200, 5000)
+		Gui.setItemTooltip("Probably don't change this one unless you disable the endzone arc.")
+		ballHeightOffset = Gui.sliderInt("Ball height offset", ballHeightOffset or 200, 0, 500)
+		-- fov/zoom
+		fieldOfView = Gui.sliderFloat("FOV", fieldOfView, MINFOV, MAXFOV)
+		Gui.setItemTooltip("mouse scroll to increase/decrease FOV. Auto zoom must be disabled.")
+		-- smoothing
+		rotationSmoothing = Gui.sliderFloat("Ball tracking smoothing", rotationSmoothing, 0, 1)
+		Gui.setItemTooltip("Make the camera turn more smoothly.")
+		positionSmoothing = Gui.sliderFloat("Dolly smoothing", positionSmoothing, 0, 1)
+		fieldOfViewSmoothing = Gui.sliderFloat("FOV Smoothing", fieldOfViewSmoothing, 0, 1)
+	end
 
-	Gui.separatorText("Stat Tracking")
-	scuffleCooldown = Gui.sliderFloat("Scuffle Cooldown (s)", scuffleCooldown, 0.2, 3)
-	Gui.setItemTooltip("Time a player must be the last to touch the ball to gain 'clear' posession.")
-	tackleDistance = Gui.sliderFloat("Tackle Distance", tackleDistance, 50, 500)
-	Gui.setItemTooltip("Max distance between players for a posession change to count as a turnover instead of an incomplete pass.")
+	-- Gui.separatorText("Stat Tracking")
+	if Gui.collapsingHeader("Stat Tracking Tweaks") then
+		scuffleCooldown = Gui.sliderFloat("Scuffle Cooldown (s)", scuffleCooldown, 0.2, 3)
+		Gui.setItemTooltip("Time a player must be the last to touch the ball to gain 'clear' posession.")
+		tackleDistance = Gui.sliderFloat("Tackle Distance", tackleDistance, 200, 700)
+		Gui.setItemTooltip("Max distance between players for a posession change to count as a turnover instead of an incomplete pass.")
+	end
 
-	Gui.separatorText("Ball Trail")
-	trailSeconds = Gui.sliderFloat("Trail length (s)", trailSeconds, 0, 2)
-	MAX_THICKNESS = Gui.sliderFloat("Max Thickness", MAX_THICKNESS, 6, 30)
-	MIN_THICKNESS = Gui.sliderFloat("Min Thickness", MIN_THICKNESS, 0.1, 5)
-	TRAIL_HEAD_OFFSET = Gui.sliderInt("Ball Trail Start Offset", TRAIL_HEAD_OFFSET, 0, 5)
-	glowMultiplier = Gui.sliderFloat("Glow Multiplier", glowMultiplier, 0.5, 5)
-	
-	Gui.separatorText("Debug")
-	debugDrawSearch = Gui.checkbox("Debug draw search radius", debugDrawSearch)
-	BALL_RADIUS = Gui.sliderFloat("Ball Radius", BALL_RADIUS, 5, 50)
-	searchRadiusMult = Gui.sliderFloat("Search Radius x Ball Radius", searchRadiusMult, 1.0, 4.0)
-	if Gui.button("Send Server Name to logs") then
-		print("MYCURRENTSERVER: " .. serverName)
+	-- Gui.separatorText("Ball Trail")
+	if Gui.collapsingHeader("Ball Trail Tweaks") then
+		trailSeconds = Gui.sliderFloat("Trail length (s)", trailSeconds, 0, 2)
+		MAX_THICKNESS = Gui.sliderFloat("Max Thickness", MAX_THICKNESS, 6, 30)
+		MIN_THICKNESS = Gui.sliderFloat("Min Thickness", MIN_THICKNESS, 0.1, 5)
+		TRAIL_HEAD_OFFSET = Gui.sliderInt("Ball Trail Start Offset", TRAIL_HEAD_OFFSET, 0, 5)
+		glowMultiplier = Gui.sliderFloat("Glow Multiplier", glowMultiplier, 0.5, 5)
+	end
+
+	-- Gui.separatorText("Debug")
+	if Gui.collapsingHeader("Debug") then
+		debugDrawSearch = Gui.checkbox("Debug draw search radius", debugDrawSearch)
+		BALL_RADIUS = Gui.sliderFloat("Ball Radius", BALL_RADIUS, 5, 50)
+		searchRadiusMult = Gui.sliderFloat("Search Radius x Ball Radius", searchRadiusMult, 1.0, 4.0)
+		if Gui.button("Send Server Name to logs") then
+			print("MYCURRENTSERVER: " .. serverName)
+		end
 	end
 end
 
