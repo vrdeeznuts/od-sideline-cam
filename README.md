@@ -1,5 +1,8 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera v2.0 for 4v4.<br>
+Orion Drift Sideline Camera v2.0 for 4v4.
+
+
+> *The spectator feature is still under active development and is subject to change throughout closed early access.*
 
 ## First Time Read Me
 If you're new to GitHub, then go through each of these steps.
@@ -9,7 +12,7 @@ If you're new to GitHub, then go through each of these steps.
 > 1. [Workflow](#base-workflow-after-setup)
 
 If you want the auto-clipping feature:
-> 1. [Auto-clipping Setup](#option-2-setup-with-auto-clipping-no-chapter-markers-or-recording-gestures)
+> 1. [Auto-clipping Setup (Option 2)](#option-2-setup-with-auto-clipping-no-chapter-markers-or-recording-gestures)
 > 1. [Run the script](#run-the-script-for-the-first-time)
 > 1. [Workflow](#base-workflow-after-setup)
 
@@ -17,6 +20,8 @@ If you want all features (requires the most setup):
 > 1. [Get all features](#option-21-obs-chapter-markers-and-triggers) - also look at [Option 2](#option-2-setup-with-auto-clipping-no-chapter-markers-or-recording-gestures) for instructions on setting up the script.
 > 1. [Run the script](#run-the-script-for-the-first-time)
 > 1. [Workflow](#base-workflow-after-setup)
+
+*If you have issues, make sure you've read the setup instructions AND workflow before telling me there's a bug.*
 
 # Table of Contents
 - [Description](#description)
@@ -66,8 +71,6 @@ At its foundation, this camera follows the ball. Since there are plenty of POV/3
 
 [^1]: The auto-clipping feature is an external Powershell script that reads the auto-generated A2.log file and watches for a specific string before triggering your clipping software's hotkey.
 
-NOTE: *The spectator feature is still under active development and is subject to change throughout closed early access.*
-
 # Updates Since Intitial Release
 - Updated keybinds (save settings keybind)
 - More stats and logging to scoreboard
@@ -82,6 +85,7 @@ NOTE: *The spectator feature is still under active development and is subject to
     - Start/Stop recording with hand gesture
     - Round start/end
     - Goal scored
+- Added input textbox to assign master player for recording hand gesture
 
 # Demo
 [iVi vs S7](https://youtu.be/LM-a9P_5bfg?si=wgDXQLXjnteWxeyO) YouTube video (unlisted)
@@ -118,6 +122,7 @@ Done.
 Since this is an auto-cam, you don't need to do anything while actively running it. With that being said, you still currently have to select the arena you want to spectate if the default or saved arena is not the right one. *In a future version, I'll add an auto-select arena based on a whitelist.*
 
 ### Base Workflow After Setup
+IF YOU CHANGE ANYTHING, MAKE SURE TO SAVE!!!
 1. Open Spectator
 1. Select server
 1. Press `Numpad 0` key or activate `yuki.side` for this camera if not set as default
