@@ -277,20 +277,15 @@ The following is the actual text you'd type if you plan to change any hotkeys (f
 - Full Example (`Ctrl + Alt + Shift + /`): `^%+/`
 - Full Example (`Ctrl + Alt + Shift + 8`): `^%+8`
 
+# Known Issues
+- With the latest update, it's possible that the camera might jump to a heartball in an arena. As long as all hearballs disappear when the game starts, the camera will go back to watching the game ball.<br>
+![Spectator Version](assets/spec-version.png)
 
 # Future Work
 Things I plan to add or want to add to this camera.
 - [ ] Add auto-select arena based on whitelist
 - [ ] Add more info to scoreboard GUI
-    - [x] Assists
-    - [x] Pass Attempts
-    - [x] Completed Passes
-    - [x] Turnovers
-    - [x] Steals (still tweaking)
-    - [x] Interceptions
     - [ ] Saves
-- [x] update keybinds
-    - [x] save (replace swap sideline button with different key)
 - [ ] I'm open to requests and/or feedback
 
 # Credits
