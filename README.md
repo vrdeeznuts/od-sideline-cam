@@ -1,5 +1,22 @@
 # 4v4 OD Sideline Camera
-Orion Drift Sideline Camera v2.0 for 4v4. 
+Orion Drift Sideline Camera v2.0 for 4v4.<br>
+
+## First Time Read Me
+If you're new to GitHub, then go through each of these steps.
+> 1. [How To](#how-to)
+> 1. [Setup](#setup)
+> 1. [Run the script](#run-the-script-for-the-first-time) - if you want to have auto-clipping and/or all features
+> 1. [Workflow](#base-workflow-after-setup)
+
+If you want the auto-clipping feature:
+> 1. [Auto-clipping Setup](#option-2-setup-with-auto-clipping-no-chapter-markers-or-recording-gestures)
+> 1. [Run the script](#run-the-script-for-the-first-time)
+> 1. [Workflow](#base-workflow-after-setup)
+
+If you want all features (requires the most setup):
+> 1. [Get all features](#option-21-obs-chapter-markers-and-triggers) - also look at [Option 2](#option-2-setup-with-auto-clipping-no-chapter-markers-or-recording-gestures) for instructions on setting up the script.
+> 1. [Run the script](#run-the-script-for-the-first-time)
+> 1. [Workflow](#base-workflow-after-setup)
 
 # Table of Contents
 - [Description](#description)
@@ -18,7 +35,8 @@ Orion Drift Sideline Camera v2.0 for 4v4.
 - [Setup](#setup)
     - [No Auto-Clipping](#option-1-easy-setup-no-auto-clipping)
     - [With Auto-Clipping](#option-2-setup-with-auto-clipping)
-    - [Auto-Clipping Notice](#auto-clipping-notice)
+    - [With All Triggers](#option-21-obs-chapter-markers-and-triggers)
+    - [How to start/stop recording in game](#how-to-startstop-recordings-from-in-game)
 - [Future Work](#future-work)
 - [Credits](#credits)
 
@@ -71,9 +89,9 @@ NOTE: *The spectator feature is still under active development and is subject to
 # How To
 ## Download a file from GitHub
 1. Click on a file
-![yuki.SIDE.luau](assets/install-1.png)
+![yuki.SIDE.luau](assets/install-01.png)
 1. Click the download button
-![download button](assets/install-2.png)
+![download button](assets/install-02.png)
 
 Done.
 
@@ -82,12 +100,12 @@ Done.
 1. Copy the text below (this is where your spectator scripts are)
     > %USERPROFILE%\Documents\Another-Axiom\A2\Cameras\Behaviors
 1. Click the address bar in the File Explorer (or click the window then press `Ctrl + L`)
-![address bar](assets/install-3.png)
+![address bar](assets/install-03.png)
 1. Paste the text you copied then press `Enter`
 1. Drag and drop the script from your `Downloads` folder into your `Behaviors` folder
-![drag and drop](assets/install-4.png)
+![drag and drop](assets/install-04.png)
 1. Now when you open up the spectator, you should see `yuki.side` as one of the camera options.
-![spec F2](assets/install-5.png)
+![spec F2](assets/install-05.png)
 
 Done.
 
@@ -102,11 +120,13 @@ Since this is an auto-cam, you don't need to do anything while actively running 
 ### Base Workflow After Setup
 1. Open Spectator
 1. Select server
-1. Press `Numpad 0` key or other pre-defined key for this camera if not set as default
-1. Navigate to desired arena (see [Arena Navigation](#arena-navigation) below)
-1. Confirm settings are good
-1. (Optional) Confirm clipping whitelist is good if using auto-clipping
-1. (Optional) Start Powershell auto-clipping script (see [Auto-Clipping Setup](#option-2-setup-with-auto-clipping) for ways to run the script)
+1. Press `Numpad 0` key or activate `yuki.side` for this camera if not set as default
+1. Navigate to desired arena you want the camera to be at (`a` key, `up/down` arrow keys) (see [Arena Navigation](#arena-navigation) below)
+1. (Optional) Confirm settings are good (these are good, default settings recommended)
+    1. **Click the `s` key or the Save Current Settings button if you make any changes!**
+1. (Optional) Confirm Medal clipping whitelist is good if using auto-clipping (this whitelist is also used if you're using other triggers)
+1. (Optional) Start `OD Trigger Watcher.ps1` Powershell script (see [run script instructions](#run-the-script-for-the-first-time))
+1. (Optional) Open OBS (if using the in-game recording gestures, make sure this window is the active window before hopping on the game)
 1. Win scrim!
 
 ### Arena Navigation
@@ -131,7 +151,7 @@ Since this is an auto-cam, you don't need to do anything while actively running 
 ## Settings
 There are a ton of settings that you can use or configure to your preferences. There is also decent documentation and tooltips in the GUI to provide guidance on what each setting is. 
 
-Recommended Settings (I leave the unmentioned settings as default):
+Default/Best Settings:
 - Arena
     - [x] Auto-switch Sideline
     - [x] Instant side switch
@@ -149,9 +169,9 @@ Recommended Settings (I leave the unmentioned settings as default):
         - Ball tracking smoothing: `0.3 - 0.35`
         - Dolly smoothing: `0.2 - 0.3`
 - Ball Trail
-    - Trail length: `0.2 - 0.3`
-    - Max Thickness: `25-26`
-    - Ball Trail Start Offset: `1 or 2`
+    - Trail length: `0.1 - 0.2`
+    - Max Thickness: `25 - 26`
+    - Ball Trail Start Offset: `1 - 3`
 
 # What's Included
 - `yuki.SIDE.luau` - this is the camera script that you would put with other camera scripts. It has 99% of the functionality but doesn't include the auto-clipping (the spectator API is sandboxed, so it can't send keystrokes by itself).
@@ -167,7 +187,7 @@ You can choose from either setup instructions below.<br>
 1. Download the `yuki.SIDE.luau` file and put it in your `...\Documents\Another-Axiom\A2\Cameras\Behaviors\` folder (same has how you'd normally do it with any other camera script).
 1. Done.
 
-## Option 2: Setup With Auto-Clipping
+## Option 2: Setup With Auto-Clipping (No chapter markers or recording gestures)
 1. Download `yuki.SIDE.luau` and put it in your `...\Documents\Another-Axiom\A2\Cameras\Behaviors\` folder (same has how you'd normally do it with any other camera script).
 1. Download `OD Trigger Watcher.ps1`. Put it in a safe folder (I recommend making a new folder and putting it on your desktop).
 1. If you've never used Powershell scripting before:
@@ -175,29 +195,7 @@ You can choose from either setup instructions below.<br>
     1. In the Powershell window that pops up, type `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` -> press `Enter` -> Type `a`, `Enter` if prompted (this allows you to run Powershell scripts, which is used to send the clipping hotkey when goals are scored), and finally close the Powershell terminal. <br>
     1. Go back to the File Explorer where the `OD Trigger Watcher.ps1` file is located and Right click on the file -> Click Properties.
     1. In the Properties window, Click the `Unblock` checkbox then hit `Apply`. Click `OK` to close the window.
-1. (Optional) Set the script up as a desktop shortcut (otherwise you will have to Right Click the file -> Click `Run with Powershell` each time).
-    1. Right Click the file -> Click `Send to` -> Click `Desktop (create shortcut)`. <br>
-    (If you don't see `Send to` as an option, you might need to click `Show more options` at the bottom first.)
-    1. Right Click the shortcut you created -> Click `Properties`.
-    1. In the Properties window in the `Target` text box, click the textbox and go to the beginning of the line. Add `powershell.exe ` in front of the file path<br> 
-    It should now look something like `powershell.exe "C:\Users\username\OneDrive\Desktop\pwsh_scripts\Medal Clipper\OD Trigger Watcher.ps1"`.
-    1. (Optional) Add a Shortcut key.
-    1. Click `Apply` -> Click `OK`.
 1. Done.
-
-Now with the setup complete, you can run the script. The first time you run it, it will prompt for the following info:
-- `file path to A2.log`. Probably leave this as default (Click `Enter`)
-- `goalMedalHotkey`: the specific hotkey string you use for clipping (Default is F8 key). If you use a different function key, just make sure to put squiggly brackets around it (e.g., `{F6}`, `{F7}`, etc.). If you use a keyboard shortcut or macro, here's a helpful list of examples (full list of key->code mappings can be found at [Microsoft System Windows Forms](https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.sendkeys?view=windowsdesktop-10.0)):
-    - Ctrl:   `^` (example: `^c` for Ctrl+C)
-    - Alt:    `%` (example: `%{F4}` for Alt+F4)
-    - Shift:  `+` (example: `+a` for Shift+a)
-    - Enter:  `~` 
-    - Tab:    `{TAB}`
-    - Esc:    `{ESC}`
-    - Delete: `{DEL}`
-    - Home:   `{HOME}`
-    - End:    `{End}`
-    - Full Example (Ctrl+Alt+Shift+F11): `^%+{F11}`
 
 ### Auto-Clipping Notice
 Because the camera scripts are sandboxed (aka no way to interact with your computer outside of the game), I had to write that Powershell script to be able to send keystrokes. It works by listening to the auto-generated A2.log file (usually found at `%LOCALAPPDATA%\A2\Saved\Logs\A2.log`) for a specific string - `"GOAL_SCORED_MEDAL_TRIGGER"`. When the script sees that string in the log, it will send your specified clipping hotkey after an optional delay. Refer to the [auto-clipping instructions](#option-2-setup-with-auto-clipping) below to set it up.
@@ -205,17 +203,79 @@ Because the camera scripts are sandboxed (aka no way to interact with your compu
 ## Option 2.1: OBS Chapter Markers and Triggers
 Chapter markers are the timestamps you would put in the description of a YouTube video to mark different sections of the video (e.g., Intro, Ad, Gameplay, etc.). The markers added to the script will provide timestamps of the rounds' start/end, as well as goals (if you've enabled the whitelist, only goals scored by your whitelisted players will be logged).
 
-Triggers are simply just the string being printed to the log (e.g., `"GOAL_SCORED_MEDAL_TRIGGER"`, `"ROUND_START_TRIGGER"`, etc.) that the Powershell script watches the A2.log for, which triggers hotkeys. It currently watches for round start, round end, and goals scored.
+Triggers are simply just the string being printed to the log (e.g., `"GOAL_SCORED_MEDAL_TRIGGER"`, `"ROUND_START_TRIGGER"`, etc.) that the Powershell script watches the A2.log for, which triggers hotkeys. It currently watches for round start, round end, and goals scored. To get this set up, follow the instructions below.
 
-To get this set up, you will need to download and configure the OBS Chapter Marker Manager - https://obsproject.com/forum/threads/streamup-chapter-marker-manager.176239/. Once that's installed, you can add individual markers for each trigger. After adding a trigger for Goal, Round Start, and Round End, open OBS settings and add a hotkey for each. 
+1. Download, extract, and run the OBS Chapter Marker Manager Installer - https://obsproject.com/forum/threads/streamup-chapter-marker-manager.176239/. 
+![Chapter Marker Download](assets/install-06.png)
+1. Open OBS and add the `StreamUP Chapter Marker Manager` dock for easier setup.
+![Chapter Marker Manager Dock](assets/install-07.png)
+1. Add the chapter markers for "Goal Marker", "Round Start Marker", and "Round End Marker" (start by clicking the empty button on the Chapter Marker Manager dock).
+![Add chapter markers](assets/install-08.png)
+1. Open Settings, go to Hotkeys.
+![Settings Hotkeys](assets/install-09.png)
+1. In the Filter textbox, type `marker`. Add hotkeys for "Goal Marker", "Round Start Marker", and "Round End Marker" (use what I use IF you have the numpad on your keyboard; change if those hotkeys are already used or you don't have the numpad). Click Apply.
+![Set hotkeys](assets/install-10.png)
+1. Now type `record` in the search box. Add hotkeys for "Start Recording" and "Stop Recording". Click Apply, then click OK to close.
+![record hotkeys](assets/install-11.png)
 
-Additionally, you can add hotkeys for starting/stopping recording (*note: these only work if OBS is the active window*). To trigger start/stop recording in-game, run the `OD Trigger Watcher.ps1` script, click the OBS window so it's active, and then with your hands in the air, hold down the triggers on both hands while not touching the grip or face of the controllers.
-#### OBS Triggers → Hotkeys
+OBS is now set up to read hotkeys. If you used the hotkeys I've provided, then when you run the `OD Trigger Watcher.ps1` for the first time, you can use the default hotkeys (press Enter when it prompts for each one).
+
+### How to start/stop recordings from in game
+Known Gotcha:<br>
+Because OD will capture all global hotkeys, these OBS hotkeys will not work properly unless OBS is the active window. In other words, just click the OBS window last (so it's on top) before hopping on to play.
+
+> If you want it to work even when OBS is not the active window:
+>> 1. Right click OBS on the taskbar
+>> 1. Click Properties
+>> 1. Click Compatibility
+>> 1. Check Run this program as an administrator
+>> 1. Click Apply
+>> 1. Restart OBS
+
+To start recordings while in the game:
+1. Hold both hands in the air (aka not touching anything)
+1. Hold down both triggers (index fingers) for 2 seconds.<br>
+**Make sure your thumbs and middle fingers are not touching the controllers.**
+1. If you did it right, the camera should jump in front of your face for 2 seconds letting you know it worked.
+
+To stop recording, do the same gesture.
+
+#### Recommendation
+Don't record on OBS and clip with Medal. If you're recording with OBS, close Medal. If you're clipping with Medal, close OBS. 
+
+I haven't fully tested everything out properly with both, and my Medal is kind of finnicky to begin with, so I rarely use it.
+
+#### OBS Triggers → Default Hotkeys
 - Goal OBS trigger → `Ctrl + Alt + Shift + Num *`
 - Round Start OBS trigger → `Ctrl + Alt + Shift + Num /`
 - Round End OBS trigger → `Ctrl + Alt + Shift + Backspace`
 - Start Recording OBS trigger → `Ctrl + Alt + Shift + F11`
 - Stop Recording OBS trigger → `Ctrl + Alt + Shift + Num -`
+
+## Run the script for the first time
+The script will generate a file called config.json after you've run it once. This file saves the hotkeys you've set for all of the different triggers (e.g., Medal, markers, start/stop recording). That's why I recommend making a folder on your desktop and putting the `OD Trigger Watcher.ps1` script in there - so you don't lose anything.
+1. Single click the script so it's selected, then right click it.
+1. Click Run with Powershell.
+1. If you've followed [Option 2](#option-2-setup-with-auto-clipping-no-chapter-markers-or-recording-gestures) instructions, you only need to make sure that the Medal clipping hotkey is the right one. You can press Enter on the rest to skip them.
+1. If you've followed [Option 2.1](#option-21-obs-chapter-markers-and-triggers), then make sure these hotkeys match the ones you set up in OBS. If you used the [default hotkeys](#obs-triggers--default-hotkeys), then you can just press Enter for all of them.
+
+With the script running, now it will watch for any triggers you set up.
+
+### Hotkey Info
+The following is the actual text you'd type if you plan to change any hotkeys (for a full list, check [Microsoft System Windows Forms](https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.sendkeys?view=windowsdesktop-10.0)). You would combine these symbols to form the hotkey (e.g., Ctrl + Shift + Alt + PageDown → `^%+{PGDN}`)
+- Ctrl: `^` (example: `^c` for `Ctrl + C`)
+- Alt: `%` (example: `%{F4}` for `Alt + F4`)
+- Shift: `+` (example: `+a` for `Shift + a`)
+- Enter: `~`
+- Tab: `{TAB}`
+- Esc: `{ESC}`
+- Delete: `{DEL}`
+- Home: `{HOME}`
+- End: `{End}`
+- Full Example (`Ctrl + Alt + Shift + F11`): `^%+{F11}`
+- Full Example (`Ctrl + Alt + Shift + Num /`): `^%+{DIVIDE}`
+- Full Example (`Ctrl + Alt + Shift + /`): `^%+/`
+- Full Example (`Ctrl + Alt + Shift + 8`): `^%+8`
 
 
 # Future Work
