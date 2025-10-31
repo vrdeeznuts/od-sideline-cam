@@ -48,6 +48,7 @@ local sideSwitchInstant = config.sideSwitchInstant or true
 local sewerSwitchCooldown = config.sewerSwitchCooldown or 3.0
 local sewerCooldownTimer = 0.0
 local currentSewerCamPos = nil
+local isCurrentlyInSewer = false
 local arcScale = 1e-4 / 2 -- height increase per squared distance from midfield line
 local hookScaleX = config.hookScaleX or 0
 local hookScaleY = config.hookScaleY or 2.5
@@ -1190,8 +1191,9 @@ end
 
 local function calculateSidelineCameraPosition(ballPos, origin, worldUp, worldRight, yAxis, dt)
 	local dollyPos
+	local isCurrentlyInSewer = isBallInSewer(ballPos, origin, worldUp, worldRight, yAxis)
 
-	if isBallInSewer(ballPos, origin, worldUp, worldRight, yAxis) then
+	if isCurrentlyInSewer then
 		sewerCooldownTimer = math.max(0, sewerCooldownTimer - dt)
 		local idealSewerPos = getSewerCameraPos(ballPos, origin, worldUp, worldRight, yAxis)
 		if not currentSewerCamPos then
@@ -1254,20 +1256,28 @@ local function calculateSidelineCameraPosition(ballPos, origin, worldUp, worldRi
 			end
 		end
 	end
-	return dollyPos
+	return dollyPos, isCurrentlyInSewer
 end
 
-local function updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, newFieldOfView)
+local function updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, newFieldOfView, didSewerTransition)
 	local rawTarget = ballPos
 	if rotationSmoothing > 0.0 then
 		rawTarget += (ballVel * 0.45)
 	end
+	
 	local aimDir = rawTarget - dollyPos
-
 	local target = aimDir:isNearlyZero() and (dollyPos + worldForward) or (dollyPos + aimDir:getSafeNormal())
 
+	-- gimbal lock check
+	local safeUp = gravity.upDirection
+	local forwardDir = (target - dollyPos):getSafeNormal()
+	if math.abs(forwardDir:dot(gravity.upDirection)) > 0.999 then
+		-- forward is nearly parallel to up direction, use world forward instead
+		safeUp = Vec3.rightVector
+	end
+
 	-- update camera
-	if prevSide ~= currSide and sideSwitchInstant then
+	if prevSide ~= currSide and sideSwitchInstant or didSewerTransition then
 		camera.positionSmoothing = 0.0
 		camera.rotationSmoothing = 0.0
 		rawTarget = ballPos
@@ -1279,7 +1289,7 @@ local function updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevS
 	end
 
 	camera.position = dollyPos
-	camera:lookAt(target, gravity.upDirection)
+	camera:lookAt(target, safeUp)
 	camera.fieldOfView = fieldOfView
 end
 
@@ -1897,13 +1907,18 @@ function tick(dt)
 	
 	-- 7. camera pos calculation
 	local prevSide = currentSide
-	local dollyPos = calculateSidelineCameraPosition(ballPos, origin, worldUp, worldRight, axisY, dt)
+	local prevInSewer = isCurrentlyInSewer
+	local dollyPos, isInSewer = calculateSidelineCameraPosition(ballPos, origin, worldUp, worldRight, axisY, dt)
+	isCurrentlyInSewer = isInSewer
+
+	local didSewerTransition = (prevInSewer ~= isCurrentlyInSewer)
+
 	local currSide = currentSide
 	
 	-- 8. update camera state
 	local camPos = camera:getSmoothedPosition()
 	fieldOfView = autoZoomUpdate(ballPos, camPos, dt)
-	updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, fieldOfView)
+	updateCameraState(dollyPos, ballPos, ballVel, worldForward, prevSide, currSide, fieldOfView, didSewerTransition)
 
 	-- 9. drawing
 	drawBallTrail(ballPos)
