@@ -2,7 +2,7 @@ metadata = {
 	name = "Sideline Cam (LIVE)",
 	description = "4v4 automated sideline dolly camera with arena selection, ball tracking, automated zoom (FOV), automated side switching, endzone riser, keyboard/mouse controls, and somewhat documented GUI. Implementation by Yuki, ideation by Mozzy.",
 	authors = { "Yuki.10", "Mozzy" },
-	version = "2.1",
+	version = "1.6",
 	defaultKeybind = "NumPadZero",
 }
 
@@ -170,8 +170,8 @@ local currentSamurais = {}
 -- triggers
 local goalTriggerString = "GOAL_SCORED_MEDAL_TRIGGER"
 local chapterTriggerString = "CHAPTER_TRIGGER"
-local roundStartTriggerString = "ROUND_START_TRIGGER"
-local roundEndTriggerString = "ROUND_END_TRIGGER"
+local roundStartTriggerString = "ROUND_STARTED_TRIGGER"
+local roundEndTriggerString = "ROUND_ENDED_TRIGGER"
 local startRecordingTriggerString = "START_RECORDING_TRIGGER"
 local stopRecordingTriggerString = "STOP_RECORDING_TRIGGER"
 
@@ -791,35 +791,30 @@ local function getNearestPlayerToBall(ballPos: Vec3, players)
 	local closestPlayer = nil
 
 	for _, p in ipairs(players) do
-		if p.root then
-			local dist = ballPos:distance(p.root.position)
-			if dist < bestDist and dist <= (BALL_RADIUS * searchRadiusMult) then
-				bestDist = dist
-				closestPlayer = p
-			end
-		end
-		if p.head then
-			local dist = ballPos:distance(p.head.position)
-			if dist < bestDist and dist <= (BALL_RADIUS * searchRadiusMult) then
-				bestDist = dist
-				closestPlayer = p
-			end
-		end
-		if p.leftHand then
-			local lH = p.root.position + p.root.rotation:rotateVector(p.leftHand.position)
-			local dist = ballPos:distance(lH)
-			if dist < bestDist and dist <= (BALL_RADIUS * searchRadiusMult) then
-				bestDist = dist
-				closestPlayer = p
-			end
-		end
-		if p.rightHand then
-			local rH = p.root.position + p.root.rotation:rotateVector(p.rightHand.position)
-			local dist = ballPos:distance(rH)
-			if dist < bestDist and dist <= (BALL_RADIUS * searchRadiusMult) then
-				bestDist = dist
-				closestPlayer = p
-			end
+		-- local rootDist = ballPos:distance(p.root.position)
+		-- local dist = ballPos:distance(p.root.position)
+		-- if dist < bestDist and dist <= (BALL_RADIUS * searchRadiusMult) then
+		-- 	bestDist = dist
+		-- 	closestPlayer = p
+		-- end
+		local headDist = ballPos:distance(p.head.position)
+		-- if dist < bestDist and dist <= (BALL_RADIUS * searchRadiusMult) then
+		-- 	bestDist = dist
+		-- 	closestPlayer = p
+		-- end
+		local lH = p.root.position + p.root.rotation:rotateVector(p.leftHand.position)
+		local lhDist = ballPos:distance(lH)
+		-- if dist < bestDist and dist <= (BALL_RADIUS * searchRadiusMult) then
+		-- 	bestDist = dist
+		-- 	closestPlayer = p
+		-- end
+		local rH = p.root.position + p.root.rotation:rotateVector(p.rightHand.position)
+		local rhDist = ballPos:distance(rH)
+
+		local smallestDist = math.min(headDist, lhDist, rhDist)
+		if smallestDist < bestDist and smallestDist < BALL_RADIUS + 10 then
+			bestDist = smallestDist
+			closestPlayer = p
 		end
 	end
 	return closestPlayer
@@ -981,7 +976,7 @@ end
 local function teamToRGB(teamName: string)
 	local trailGlowMult = glowMultiplier
 	if not teamName then
-		return trailGlowMult, 0.5 * trailGlowMult, 0.5 * trailGlowMult
+		return 0.5 * trailGlowMult, 0.5 * trailGlowMult, 0.5 * trailGlowMult
 	end
 	local teamLower = string.lower(teamName)
 	if string.find(teamLower, "samurai") ~= nil then
